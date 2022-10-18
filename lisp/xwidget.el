@@ -59,6 +59,7 @@
 (declare-function xwidget-live-p "xwidget.c" (xwidget))
 (declare-function xwidget-webkit-stop-loading "xwidget.c" (xwidget))
 (declare-function xwidget-info "xwidget.c" (xwidget))
+(declare-function xwidget-webkit-loading-p "xwidget.c" (xwidget))
 
 (defgroup xwidget nil
   "Displaying native widgets in Emacs buffers."
@@ -515,6 +516,41 @@ If non-nil, plugins are enabled.  Otherwise, disabled."
                                       session))))))))
   ;; Keep track of [vh]scroll when switching buffers
   (image-mode-setup-winprops))
+
+;; an attempt at a more efficient resetting of the header line:
+;; (currently has some issues with the xwidget-webkit-loading-p function)
+;; (define-derived-mode xwidget-webkit-mode special-mode "xwidget-webkit"
+;;   "Xwidget webkit view mode."
+;;   (setq buffer-read-only t)
+;;   (add-hook 'kill-buffer-hook #'xwidget-webkit-buffer-kill)
+;;   (setq-local tool-bar-map xwidget-webkit-tool-bar-map)
+;;   (setq-local bookmark-make-record-function
+;;               #'xwidget-webkit-bookmark-make-record)
+;;   (message "is it loading? %s" xwidget-webkit--loading-p)
+;;   (setq-local header-line-format
+;;               (list "WebKit: "
+;;                     '(:eval
+;;                       (xwidget-webkit-title (xwidget-webkit-current-session)))
+;;                     '(:eval
+;;                       (let ((session (xwidget-webkit-current-session)))
+;;                         (if (or (xwidget-webkit-loading-p session)
+;;                                 (progn (message "the func returned nil") xwidget-webkit--loading-p))
+;;                             (format " [%d%%%%]"
+;;                                     (get-estimate-and-reset session))
+;;                         "  ✅")))))
+;;   ;; Keep track of [vh]scroll when switching buffers
+;;   (image-mode-setup-winprops))
+
+(defun get-estimate-and-reset (session)
+  (let ((estimate (* 100 (xwidget-webkit-estimated-load-progress
+                          session))))
+    ;; (if (>= 100 estimate)
+    ;;     (setq xwidget-webkit--loading-p nil))
+    estimate))
+
+;; (advice-add 'xwidget-webkit-goto-uri :before (lambda (&rest _args)
+;;                                                (message "setting the loading to true")
+;;                                                (setq xwidget-webkit--loading-p t)))
 
 ;;; Download, save as file.
 

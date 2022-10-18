@@ -54,6 +54,9 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include <math.h>
 
+// for debugging
+#include <stdio.h>
+
 static Lisp_Object id_to_xwidget_map;
 static Lisp_Object internal_xwidget_view_list;
 static Lisp_Object internal_xwidget_list;
@@ -3063,12 +3066,65 @@ DEFUN ("xwidget-webkit-title",
 #endif
 }
 
+DEFUN ("xwidget-webkit-estimated-load-progress",
+       Fxwidget_webkit_estimated_load_progress, Sxwidget_webkit_estimated_load_progress,
+       1, 1, 0, doc: /* Get the estimated load progress of XWIDGET, a WebKit widget.
+Return a value ranging from 0.0 to 1.0, based on how close XWIDGET
+is to completely loading its page.  */)
+  (Lisp_Object xwidget)
+{
+  struct xwidget *xw;
+  /* WebKitWebView *webview; */
+  double value;
+
+  printf("\n\nin xwidget_webkit_estimated_load_progress");
+  CHECK_LIVE_XWIDGET (xwidget);
+  printf("\nchecked LIVE_XWIDGET");
+  xw = XXWIDGET (xwidget);
+  printf("\ngot the xwidget");
+  CHECK_WEBKIT_WIDGET (xw);
+  printf("\nchecked WEBKIT_WIDGET");
+
+  block_input ();
+  printf("\nblocked the input");
+  /* webview = WEBKIT_WEB_VIEW (xw->widget_osr); */
+  /* printf("\ngot webview"); */
+  value = nsxwidget_webkit_estimated_load_progress (xw);
+  printf("\ngot the value: %f", value);
+  unblock_input ();
+  printf("\nunblocked the input");
+  printf("\nreturning make_float(value) with value: %f", value);
+
+  return make_float (value);
+}
+
+DEFUN ("xwidget-webkit-loading-p",
+       Fxwidget_webkit_loading_p, Sxwidget_webkit_loading_p,
+       1, 1, 0, doc: /* Return whether the xwidget is currently loading a web page.  */)
+  (Lisp_Object xwidget)
+{
+  struct xwidget *xw;
+
+  printf("\n\nin xwidget_webkit_loading_p");
+  CHECK_LIVE_XWIDGET (xwidget);
+  printf("\nchecked LIVE_XWIDGET");
+  xw = XXWIDGET (xwidget);
+  printf("\ngot the xwidget");
+  CHECK_WEBKIT_WIDGET (xw);
+  printf("\nchecked WEBKIT_WIDGET");
+
+  if (nsxwidget_webkit_is_loading (xw))
+    return Qt;
+  return Qnil;
+}
+
 DEFUN ("xwidget-webkit-goto-uri",
        Fxwidget_webkit_goto_uri, Sxwidget_webkit_goto_uri,
        2, 2, 0,
        doc: /* Make the xwidget webkit instance referenced by XWIDGET browse URI.  */)
   (Lisp_Object xwidget, Lisp_Object uri)
 {
+  printf("\n in xwidget-webkit-goto-uri!!");
   WEBKIT_FN_INIT ();
   CHECK_STRING (uri);
   uri = ENCODE_FILE (uri);
@@ -3078,6 +3134,9 @@ DEFUN ("xwidget-webkit-goto-uri",
 #elif defined NS_IMPL_COCOA
   nsxwidget_webkit_goto_uri (xw, SSDATA (uri));
 #endif
+//  printf("\nwhat happens if i try to call xwidget-webkit-estimated-load-progress from here?");
+//  double value = xwidget_webkit_estimated_load_progress(xw);
+//  printf("\ngot value: %f", value);
   return Qnil;
 }
 
@@ -3810,28 +3869,6 @@ LIMIT is not specified or nil, it is treated as `50'.  */)
   return list3 (back, here, forward);
 }
 
-DEFUN ("xwidget-webkit-estimated-load-progress",
-       Fxwidget_webkit_estimated_load_progress, Sxwidget_webkit_estimated_load_progress,
-       1, 1, 0, doc: /* Get the estimated load progress of XWIDGET, a WebKit widget.
-Return a value ranging from 0.0 to 1.0, based on how close XWIDGET
-is to completely loading its page.  */)
-  (Lisp_Object xwidget)
-{
-  struct xwidget *xw;
-  WebKitWebView *webview;
-  double value;
-
-  CHECK_LIVE_XWIDGET (xwidget);
-  xw = XXWIDGET (xwidget);
-  CHECK_WEBKIT_WIDGET (xw);
-
-  block_input ();
-  webview = WEBKIT_WEB_VIEW (xw->widget_osr);
-  value = webkit_web_view_get_estimated_load_progress (webview);
-  unblock_input ();
-
-  return make_float (value);
-}
 #endif
 
 DEFUN ("xwidget-webkit-set-cookie-storage-file",
@@ -3874,19 +3911,27 @@ This will stop any data transfer that may still be in progress inside
 XWIDGET as part of loading a page.  */)
   (Lisp_Object xwidget)
 {
-#ifdef USE_GTK
+  #ifdef USE_GTK
   struct xwidget *xw;
   WebKitWebView *webview;
+  printf("\n\nin xwidget_webkit_stop-loading");
 
   CHECK_LIVE_XWIDGET (xwidget);
+  printf("\nchecked LIVE_XWIDGET");
   xw = XXWIDGET (xwidget);
+  printf("\ngot the xw");
   CHECK_WEBKIT_WIDGET (xw);
+  printf("\nchecked webkit widget");
 
   block_input ();
+  printf("\nblocked the input");
   webview = WEBKIT_WEB_VIEW (xw->widget_osr);
+  printf("\ngot the webview");
   webkit_web_view_stop_loading (webview);
+  printf("\nstopped loading");
   unblock_input ();
-#endif
+  printf("\nunblocked input");
+  #endif
 
   return Qnil;
 }
@@ -3936,8 +3981,10 @@ syms_of_xwidget (void)
 #ifdef USE_GTK
   defsubr (&Sxwidget_webkit_load_html);
   defsubr (&Sxwidget_webkit_back_forward_list);
-  defsubr (&Sxwidget_webkit_estimated_load_progress);
 #endif
+
+  defsubr (&Sxwidget_webkit_estimated_load_progress);
+  defsubr (&Sxwidget_webkit_loading_p);
   defsubr (&Skill_xwidget);
 
   DEFSYM (QCxwidget, ":xwidget");

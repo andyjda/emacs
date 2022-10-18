@@ -30,6 +30,9 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #import <AppKit/AppKit.h>
 #import <WebKit/WebKit.h>
 
+// for debugging
+#include <stdio.h>
+
 /* Thoughts on NS Cocoa xwidget and webkit2:
 
    Webkit2 process architecture seems to be very hostile for offscreen
@@ -325,6 +328,7 @@ nsxwidget_webkit_title (struct xwidget *xw)
 void
 nsxwidget_webkit_goto_uri (struct xwidget *xw, const char *uri)
 {
+  printf("\nin nsxwidget_webkit_goto_uri!!\n\n!!!");
   XwWebView *xwWebView = (XwWebView *) xw->xwWidget;
   NSString *urlString = [NSString stringWithUTF8String:uri];
   NSURL *url = [NSURL URLWithString:urlString];
@@ -341,6 +345,26 @@ nsxwidget_webkit_goto_history (struct xwidget *xw, int rel_pos)
   case 0: [xwWebView reload]; break;
   case 1: [xwWebView goForward]; break;
   }
+}
+
+double
+nsxwidget_webkit_estimated_load_progress(struct xwidget *xw)
+{
+  printf("\nin nsxwidget_webkit_estimated_load_progress");
+  XwWebView *xwWebView = (XwWebView *) xw->xwWidget;
+  printf("\ngot the xwWebView");
+  printf("\nreturning the esimated progress as Double");
+  return xwWebView.estimatedProgress;
+}
+
+bool
+nsxwidget_webkit_is_loading(struct xwidget *xw)
+{
+  printf("\nin nsxwidget_webkit_is_loading");
+  XwWebView *xwWebView = (XwWebView *) xw->xwWidget;
+  printf("\ngot the xwWebView");
+  printf("\nreturning is loading as bool");
+  return xwWebView.isLoading;
 }
 
 void
