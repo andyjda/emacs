@@ -205,8 +205,15 @@ for the actual events that will be sent."
     (define-key map "+" 'xwidget-webkit-zoom-in)
     (define-key map "-" 'xwidget-webkit-zoom-out)
     (define-key map "e" 'xwidget-webkit-edit-mode)
-    (define-key map "\C-r" 'xwidget-webkit-isearch-mode)
-    (define-key map "\C-s" 'xwidget-webkit-isearch-mode)
+    ;; we can't use `xwidget-webkit-isearch-mode'
+    ;; it hasn't been implemented for macOS yet
+    ;; but `isearch-forward' and `isearch-backward'
+    ;; (plus the code in the 'Search text in page' section)
+    ;; work just fine
+    ;; (define-key map "\C-r" 'xwidget-webkit-isearch-mode)
+    ;; (define-key map "\C-s" 'xwidget-webkit-isearch-mode)
+    (define-key map "\C-s" #'isearch-forward)
+    (define-key map "\C-r" #'isearch-backward)
     (define-key map "H" 'xwidget-webkit-browse-history)
 
     ;;similar to image mode bindings
@@ -421,6 +428,7 @@ one char."
 (defun xwidget-webkit--update-progress-timer-function (xwidget)
   "Force an update of the header line of XWIDGET's buffer."
   (with-current-buffer (xwidget-buffer xwidget)
+    (message "going to call `force-mode-line-update'")
     (force-mode-line-update)))
 
 (defun xwidget-webkit-buffer-kill ()
@@ -468,7 +476,14 @@ XWIDGET instance, XWIDGET-EVENT-TYPE depends on the originating xwidget."
                    xwidget-webkit-buffer-name-format
                    `((?T . ,title)
                      (?U . ,uri)))
-                  t)))))
+                  t))
+               ;; reset the loading variable and stop the timer
+               ;; normally (in the GTK/X11 builds) this is handled by the code above,
+               ;; but it seems that in the NextStep build, the event "load-finished"
+               ;; is not always received or sent
+               (setq xwidget-webkit--loading-p nil)
+               (cancel-timer xwidget-webkit--progress-update-timer)
+               (message "canceled the timer"))))
           ((eq xwidget-event-type 'decide-policy)
            (let ((strarg  (nth 3 last-input-event)))
              (if (string-match ".*#\\(.*\\)" strarg)
@@ -507,12 +522,15 @@ If non-nil, plugins are enabled.  Otherwise, disabled."
                     '(:eval
                       (xwidget-webkit-title (xwidget-webkit-current-session)))
                     '(:eval
+                      ;; `xwidget-webkit-estimated-load-progress' is currently
+                      ;; not implemented for macOS Cocoa
+                      (if (fboundp #'xwidget-webkit-estimated-load-progress)
                       (when xwidget-webkit--loading-p
                         (let ((session (xwidget-webkit-current-session)))
                           (format " [%d%%%%]"
                                   (* 100
                                      (xwidget-webkit-estimated-load-progress
-                                      session))))))))
+                                      session)))))))))
   ;; Keep track of [vh]scroll when switching buffers
   (image-mode-setup-winprops))
 
@@ -570,6 +588,70 @@ a new xwidget-webkit session, otherwise use an existing session."
     (with-current-buffer xwbuf
       (xwidget-webkit-goto-uri (xwidget-webkit-current-session) url))
     (set-buffer xwbuf)))
+
+;;; Search text in page
+;; this section is all copied from the earlier version of xwidget.el
+;; at https://github.com/emacs-mirror/emacs/blob/emacs-28/lisp/xwidget.el
+;; The newer implementation (see `xwidget-webkit-isearch-mode')
+;; depends on some functions that haven't been implemented for macOS yet
+(defvar isearch-search-fun-function)
+
+;; Initialize last search text length variable when isearch starts
+(defvar xwidget-webkit-isearch-last-length 0)
+(add-hook 'isearch-mode-hook
+          (lambda ()
+            (setq xwidget-webkit-isearch-last-length 0)))
+
+;; This is minimal. Regex and incremental search will be nice
+(defvar xwidget-webkit-search-js "
+var xwSearchForward = %s;
+var xwSearchRepeat = %s;
+var xwSearchString = '%s';
+if (window.getSelection() && !window.getSelection().isCollapsed) {
+  if (xwSearchRepeat) {
+    if (xwSearchForward)
+      window.getSelection().collapseToEnd();
+    else
+      window.getSelection().collapseToStart();
+  } else {
+    if (xwSearchForward)
+      window.getSelection().collapseToStart();
+    else {
+      var sel = window.getSelection();
+      window.getSelection().collapse(sel.focusNode, sel.focusOffset + 1);
+    }
+  }
+}
+window.find(xwSearchString, false, !xwSearchForward, true, false, true);
+")
+
+(defun xwidget-webkit-search-fun-function ()
+  "Return the function which perform the search in xwidget webkit."
+  (lambda (string &optional bound noerror count)
+    (ignore bound noerror count)
+    (let ((current-length (length string))
+          search-forward
+          search-repeat)
+      ;; Forward or backward
+      (if (eq isearch-forward nil)
+          (setq search-forward "false")
+        (setq search-forward "true"))
+      ;; Repeat if search string length not changed
+      (if (eq current-length xwidget-webkit-isearch-last-length)
+          (setq search-repeat "true")
+        (setq search-repeat "false"))
+      (setq xwidget-webkit-isearch-last-length current-length)
+      (xwidget-webkit-execute-script
+       (xwidget-webkit-current-session)
+       (format xwidget-webkit-search-js
+               search-forward
+               search-repeat
+               (regexp-quote string)))
+      ;; Unconditionally avoid 'Failing I-search ...'
+      (if (eq isearch-forward nil)
+          (goto-char (point-max))
+        (goto-char (point-min)))
+      )))
 
 ;;; xwidget webkit session
 
@@ -922,8 +1004,9 @@ Return the buffer."
 (defun xwidget-webkit-current-url ()
   "Display the current xwidget webkit URL and place it on the `kill-ring'."
   (interactive nil xwidget-webkit-mode)
-  (let ((url (xwidget-webkit-uri (xwidget-webkit-current-session))))
-    (message "URL: %s" (kill-new (or url "")))))
+  (let ((url (or (xwidget-webkit-uri (xwidget-webkit-current-session)) "")))
+    (kill-new url)
+    (message "%s" url)))
 
 (defun xwidget-webkit-browse-history ()
   "Display a buffer containing the history of page loads."
