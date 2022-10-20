@@ -85,6 +85,70 @@ This returns the result of `make-xwidget'."
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Search text in page
+;; this section is all copied from the earlier version of xwidget.el
+;; at https://github.com/emacs-mirror/emacs/blob/emacs-28/lisp/xwidget.el
+;; The newer implementation (see `xwidget-webkit-isearch-mode')
+;; depends on some functions that haven't been implemented for macOS yet
+(defvar isearch-search-fun-function)
+
+;; Initialize last search text length variable when isearch starts
+(defvar xwidget-webkit-isearch-last-length 0)
+(add-hook 'isearch-mode-hook
+          (lambda ()
+            (setq xwidget-webkit-isearch-last-length 0)))
+
+;; This is minimal. Regex and incremental search will be nice
+(defvar xwidget-webkit-search-js "
+var xwSearchForward = %s;
+var xwSearchRepeat = %s;
+var xwSearchString = '%s';
+if (window.getSelection() && !window.getSelection().isCollapsed) {
+  if (xwSearchRepeat) {
+    if (xwSearchForward)
+      window.getSelection().collapseToEnd();
+    else
+      window.getSelection().collapseToStart();
+  } else {
+    if (xwSearchForward)
+      window.getSelection().collapseToStart();
+    else {
+      var sel = window.getSelection();
+      window.getSelection().collapse(sel.focusNode, sel.focusOffset + 1);
+    }
+  }
+}
+window.find(xwSearchString, false, !xwSearchForward, true, false, true);
+")
+
+(defun xwidget-webkit-search-fun-function ()
+  "Return the function which perform the search in xwidget webkit."
+  (lambda (string &optional bound noerror count)
+    (ignore bound noerror count)
+    (let ((current-length (length string))
+          search-forward
+          search-repeat)
+      ;; Forward or backward
+      (if (eq isearch-forward nil)
+          (setq search-forward "false")
+        (setq search-forward "true"))
+      ;; Repeat if search string length not changed
+      (if (eq current-length xwidget-webkit-isearch-last-length)
+          (setq search-repeat "true")
+        (setq search-repeat "false"))
+      (setq xwidget-webkit-isearch-last-length current-length)
+      (xwidget-webkit-execute-script
+       (xwidget-webkit-current-session)
+       (format xwidget-webkit-search-js
+               search-forward
+               search-repeat
+               (regexp-quote string)))
+      ;; Unconditionally avoid 'Failing I-search ...'
+      (if (eq isearch-forward nil)
+          (goto-char (point-max))
+        (goto-char (point-min)))
+      )))
+
 ;;; webkit support
 (require 'browse-url)
 (require 'image-mode);;for some image-mode alike functionality
@@ -208,7 +272,7 @@ for the actual events that will be sent."
     ;; we can't use `xwidget-webkit-isearch-mode'
     ;; it hasn't been implemented for macOS yet
     ;; but `isearch-forward' and `isearch-backward'
-    ;; (plus the code in the 'Search text in page' section)
+    ;; plus `xwidget-webkit-search-fun-function'
     ;; work just fine
     ;; (define-key map "\C-r" 'xwidget-webkit-isearch-mode)
     ;; (define-key map "\C-s" 'xwidget-webkit-isearch-mode)
@@ -514,6 +578,10 @@ If non-nil, plugins are enabled.  Otherwise, disabled."
   "Xwidget webkit view mode."
   (setq buffer-read-only t)
   (add-hook 'kill-buffer-hook #'xwidget-webkit-buffer-kill)
+  ;; fixing the search
+  (setq-local isearch-lazy-highlight nil)
+  (setq-local isearch-search-fun-function
+              #'xwidget-webkit-search-fun-function)
   (setq-local tool-bar-map xwidget-webkit-tool-bar-map)
   (setq-local bookmark-make-record-function
               #'xwidget-webkit-bookmark-make-record)
@@ -588,70 +656,6 @@ a new xwidget-webkit session, otherwise use an existing session."
     (with-current-buffer xwbuf
       (xwidget-webkit-goto-uri (xwidget-webkit-current-session) url))
     (set-buffer xwbuf)))
-
-;;; Search text in page
-;; this section is all copied from the earlier version of xwidget.el
-;; at https://github.com/emacs-mirror/emacs/blob/emacs-28/lisp/xwidget.el
-;; The newer implementation (see `xwidget-webkit-isearch-mode')
-;; depends on some functions that haven't been implemented for macOS yet
-(defvar isearch-search-fun-function)
-
-;; Initialize last search text length variable when isearch starts
-(defvar xwidget-webkit-isearch-last-length 0)
-(add-hook 'isearch-mode-hook
-          (lambda ()
-            (setq xwidget-webkit-isearch-last-length 0)))
-
-;; This is minimal. Regex and incremental search will be nice
-(defvar xwidget-webkit-search-js "
-var xwSearchForward = %s;
-var xwSearchRepeat = %s;
-var xwSearchString = '%s';
-if (window.getSelection() && !window.getSelection().isCollapsed) {
-  if (xwSearchRepeat) {
-    if (xwSearchForward)
-      window.getSelection().collapseToEnd();
-    else
-      window.getSelection().collapseToStart();
-  } else {
-    if (xwSearchForward)
-      window.getSelection().collapseToStart();
-    else {
-      var sel = window.getSelection();
-      window.getSelection().collapse(sel.focusNode, sel.focusOffset + 1);
-    }
-  }
-}
-window.find(xwSearchString, false, !xwSearchForward, true, false, true);
-")
-
-(defun xwidget-webkit-search-fun-function ()
-  "Return the function which perform the search in xwidget webkit."
-  (lambda (string &optional bound noerror count)
-    (ignore bound noerror count)
-    (let ((current-length (length string))
-          search-forward
-          search-repeat)
-      ;; Forward or backward
-      (if (eq isearch-forward nil)
-          (setq search-forward "false")
-        (setq search-forward "true"))
-      ;; Repeat if search string length not changed
-      (if (eq current-length xwidget-webkit-isearch-last-length)
-          (setq search-repeat "true")
-        (setq search-repeat "false"))
-      (setq xwidget-webkit-isearch-last-length current-length)
-      (xwidget-webkit-execute-script
-       (xwidget-webkit-current-session)
-       (format xwidget-webkit-search-js
-               search-forward
-               search-repeat
-               (regexp-quote string)))
-      ;; Unconditionally avoid 'Failing I-search ...'
-      (if (eq isearch-forward nil)
-          (goto-char (point-max))
-        (goto-char (point-min)))
-      )))
 
 ;;; xwidget webkit session
 
