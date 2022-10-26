@@ -4285,8 +4285,6 @@ kill_xwidget (struct xwidget *xw)
   catch_child_signal ();
 #elif defined NS_IMPL_COCOA
   nsxwidget_kill (xw);
-  // maybe we should dealloc xw here???
-  free(xw);
 #endif
 }
 
