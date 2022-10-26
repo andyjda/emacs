@@ -490,6 +490,7 @@ nsxwidget_kill (struct xwidget *xw)
 {
   if (xw)
     {
+      printf("\nin nsxwidget_kill");
       WKUserContentController *scriptor =
         ((XwWebView *) xw->xwWidget).configuration.userContentController;
       [scriptor removeAllUserScripts];
@@ -499,7 +500,7 @@ nsxwidget_kill (struct xwidget *xw)
         xw->xv->model = Qnil; /* Make sure related view stale.  */
 
       /* This stops playing audio when a xwidget-webkit buffer is
-         killed.  I could not find other solution.  */
+         killed.  I could not find other solution.  TODO: improve this*/
       nsxwidget_webkit_goto_uri (xw, "about:blank");
 
       [((XwWebView *) xw->xwWidget).urlScriptBlocked release];
@@ -507,7 +508,9 @@ nsxwidget_kill (struct xwidget *xw)
       [xw->xwWidget release];
       [xw->xwWindow removeFromSuperviewWithoutNeedingDisplay];
       [xw->xwWindow release];
-      xw->xwWidget = nil;
+      xw->xwWidget = nil; // what's the point of this? didn't we just release it?
+      // [xw release];
+      printf("\nkilled everything?");
     }
 }
 
