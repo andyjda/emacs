@@ -492,7 +492,7 @@ one char."
 (defun xwidget-webkit--update-progress-timer-function (xwidget)
   "Force an update of the header line of XWIDGET's buffer."
   (with-current-buffer (xwidget-buffer xwidget)
-    (message "going to call `force-mode-line-update'")
+    ;; (message "going to call `force-mode-line-update'")
     (force-mode-line-update)))
 
 (defun xwidget-webkit-buffer-kill ()
@@ -546,6 +546,7 @@ XWIDGET instance, XWIDGET-EVENT-TYPE depends on the originating xwidget."
                ;; but it seems that in the NextStep build, the event "load-finished"
                ;; is not always received or sent
                (setq xwidget-webkit--loading-p nil)
+               ;; (message "canceling the timer")
                (cancel-timer xwidget-webkit--progress-update-timer))))
           ((eq xwidget-event-type 'decide-policy)
            (let ((strarg  (nth 3 last-input-event)))
