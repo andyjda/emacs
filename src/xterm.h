@@ -295,8 +295,7 @@ struct xi_device_t
 };
 #endif
 
-Status x_parse_color (struct frame *f, const char *color_name,
-		      XColor *color);
+extern Status x_parse_color (struct frame *, const char *, XColor *);
 
 struct x_failable_request
 {
@@ -1696,8 +1695,12 @@ extern void x_xr_apply_ext_clip (struct frame *, GC);
 extern void x_xr_reset_ext_clip (struct frame *);
 #endif
 
+extern void x_translate_coordinates (struct frame *, int, int, int *, int *);
 extern void x_translate_coordinates_to_root (struct frame *, int, int,
 					     int *, int *);
+extern Lisp_Object x_handle_translate_coordinates (struct frame *, Lisp_Object,
+						   int, int);
+
 extern Bool x_query_pointer (Display *, Window, Window *, Window *, int *,
 			     int *, int *, int *, unsigned int *);
 
