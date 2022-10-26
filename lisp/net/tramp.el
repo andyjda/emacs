@@ -281,6 +281,13 @@ pair of the form (KEY VALUE).  The following KEYs are defined:
     Until now, just \"ssh\"-based, \"sshfs\"-based and
     \"adb\"-based methods do.
 
+  * `tramp-config-check'
+    A function to be called with one argument, VEC.  It should
+    return a string which is used to check, whether the
+    configuration of the remote host has been changed (which
+    would require to flush the cache data).  This string is kept
+    as connection property \"config-check-data\".
+
   * `tramp-copy-program'
     This specifies the name of the program to use for remotely copying
     the file; this might be the absolute filename of scp or the name of
@@ -1526,7 +1533,8 @@ same connection.  Make a copy in order to avoid side effects."
 
 ;; Comparison of file names is performed by `tramp-equal-remote'.
 (defun tramp-file-name-equal-p (vec1 vec2)
-  "Check, whether VEC1 and VEC2 denote the same `tramp-file-name'."
+  "Check, whether VEC1 and VEC2 denote the same `tramp-file-name'.
+LOCALNAME and HOP do not count."
   (and (tramp-file-name-p vec1) (tramp-file-name-p vec2)
        (equal (tramp-file-name-unify vec1)
 	      (tramp-file-name-unify vec2))))

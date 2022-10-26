@@ -820,22 +820,6 @@ This means Emacs built with GNUstep or built on macOS is now able to
 display different faces and images inside tooltips when the
 'use-system-tooltips' user option is nil.
 
-** Connection-local variables
-
-+++
-*** Some connection-local variables are now user options.
-The variables 'connection-local-profile-alist' and
-'connection-local-criteria-alist' are now user options, in order to
-make it more convenient to inspect and modify them.
-
-+++
-*** The default connection-local application can be changed temporarily.
-Running 'with-connection-local-variables' defaults to application
-'tramp'.  This can be changed by let-binding
-'connection-local-default-application' to another symbol.  This is
-useful when running code in a buffer where Tramp has already set some
-connection-local variables.
-
 ---
 ** New minor mode 'pixel-scroll-precision-mode'.
 When enabled, and if your mouse supports it, you can scroll the
@@ -1052,15 +1036,11 @@ or is itself too long.
 +++
 *** New user option 'outline-minor-mode-use-buttons'.
 If non-nil, Outline Minor Mode will use buttons to hide/show outlines
-in addition to the ellipsis.  The default is nil in editing modes, but
-non-nil in 'help-mode' and its derivatives.
-
-+++
-*** New user option 'outline-minor-mode-use-margins'.
-If non-nil, Outline Minor Mode will use the window margins to
-hide/show outlines in addition to the ellipsis.  The default is
-non-nil in 'special-mode' and its derivatives, and it can be used in
-editing modes.
+in addition to the ellipsis.  The default is nil, but in 'help-mode'
+it has the value 'insert' that inserts the buttons directly to the
+buffer where you can use 'RET' to cycle outline visibility.  When
+the value is 'in-margins', Outline Minor Mode uses the window margins
+to hide/show outlines.
 
 ** Windows
 
@@ -1373,6 +1353,16 @@ The default input method for the Tamil language environment is now
 change the input method's translation rules, customize the user option
 'tamil-translation-rules'.
 
+---
+*** New tamil99 input method for the Tamil language.
+This supports the keyboard layout specifically designed for the Tamil
+language.
+
+---
+*** New input method 'slovak-qwerty'.
+This is a variant of the 'slovak' input method, which corresponds to
+the QWERTY Slovak keyboards.
+
 
 * Changes in Specialized Modes and Packages in Emacs 29.1
 
@@ -1643,7 +1633,7 @@ This mode adds some highlighting, fixes the 'M-q' command, and has
 commands for doing maintenance of the Emacs NEWS files.  In addition,
 this mode turns on 'outline-minor-mode', and thus displays
 customizable icons (see 'icon-preference') in the margins.  To
-disable these icons, customize 'outline-minor-mode-use-margins' to a
+disable these icons, set 'outline-minor-mode-use-buttons' to a
 nil value.
 
 ---
@@ -2527,6 +2517,12 @@ the user requesting such a connection, and not of the user who is the
 target.  This has always been needed, just the password prompt and the
 related 'auth-sources' entry were wrong.
 
++++
+*** New user option 'tramp-completion-use-cache'.
+During user and host name completion in the minibuffer, results from
+Tramp's connection cache are taken into account.  This can be disabled
+by setting the user option 'tramp-completion-use-cache' to nil.
+
 ** Browse URL
 
 ---
@@ -2766,6 +2762,13 @@ name.
 * New Modes and Packages in Emacs 29.1
 
 +++
+** Eglot: Emacs Client for the Language Server Protocol.
+Emacs now comes with the Eglot package, which enhances various Emacs
+features, such as completion, documentation, error detection, etc.,
+based on data provided by language servers using the Language Server
+Protocol (LSP).
+
++++
 ** New commands 'image-crop' and 'image-cut.
 These commands allow interactively cropping/cutting the image at
 point.  The commands are bound to keys 'i c' and 'i x' (respectively)
@@ -2853,8 +2856,8 @@ normal.
 
 ---
 ** Themes have special autoload cookies.
-All build-in themes are scraped for ;;;###theme-autoload cookies that
-are loaded along with the regular auto-loaded code.
+All build-in themes are scraped for ';;;###theme-autoload' cookies
+that are loaded along with the regular auto-loaded code.
 
 +++
 ** 'buffer-modified-p' has been extended.
@@ -3169,6 +3172,15 @@ The following generalized variables have been made obsolete:
 * Lisp Changes in Emacs 29.1
 
 +++
+** Interpreted closures are "safe for space".
+As was already the case for byte-compiled closures, instead of capturing
+the whole current lexical environment, interpreted closures now only
+capture the part of the environment that they need.
+The previous behavior could occasionally lead to memory leaks or
+to problems where a printed closure would not be 'read'able because
+of an un'read'able value in an unrelated lexical variable.
+
++++
 ** New accessor function 'file-attribute-file-identifier'.
 It returns the list of the inode number and device identifier
 retrieved by 'file-attributes'.  This value can be used to identify a
@@ -3224,12 +3236,32 @@ TIMEOUT is the idle time after which to deactivate the transient map.
 The default timeout value can be defined by the new variable
 'set-transient-map-timeout'.
 
+** Connection-local variables
+
 +++
-** New macro 'setq-connection-local'.
+*** Some connection-local variables are now user options.
+The variables 'connection-local-profile-alist' and
+'connection-local-criteria-alist' are now user options, in order to
+make it more convenient to inspect and modify them.
+
++++
+*** New function 'connection-local-update-profile-variables'.
+This function allows to modify the settings of an existing
+connection-local profile.
+
++++
+*** New macro 'with-connection-local-application-variables'.
+This macro works like 'with-connection-local-variables', but it allows
+to use another application but 'tramp'.  This is useful when running
+code in a buffer where Tramp has already set some connection-local
+variables.
+
++++
+*** New macro 'setq-connection-local'.
 This allows dynamically setting variable values for a particular
-connection within the body of 'with-connection-local-variables'.  See
-the "(elisp) Connection Local Variables" node in the Lisp Reference
-manual for more information.
+connection within the body of 'with-connection-local-{application-}variables'.
+See the "(elisp) Connection Local Variables" node in the Lisp
+Reference manual for more information.
 
 +++
 ** 'plist-get', 'plist-put' and 'plist-member' are no longer limited to 'eq'.

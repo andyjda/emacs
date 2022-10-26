@@ -1,4 +1,4 @@
-;;; cc-fonts.el --- font lock support for CC Mode -*- lexical-binding: t -*-
+;; cc-fonts.el --- font lock support for CC Mode -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2002-2022 Free Software Foundation, Inc.
 
@@ -115,6 +115,7 @@
 	 ;; used for preprocessor directives.
 	 'font-lock-builtin-face)
 	((and (c-face-name-p 'font-lock-reference-face)
+	      (boundp 'font-lock-reference-face)
 	      (eq font-lock-reference-face 'font-lock-reference-face))
 	 'font-lock-reference-face)
 	(t 'font-lock-constant-face)))
@@ -128,6 +129,7 @@
 	 ;; suite.)
 	 'font-lock-label-face)
 	((and (c-face-name-p 'font-lock-constant-face)
+	      (boundp 'font-lock-constant-face)
 	      (eq font-lock-constant-face 'font-lock-constant-face))
 	 ;; Test both if font-lock-constant-face exists and that it's
 	 ;; not an alias for something else.  This is important since
@@ -138,20 +140,24 @@
 
 (defconst c-constant-face-name
   (if (and (c-face-name-p 'font-lock-constant-face)
+	   (boundp 'font-lock-constant-face)
 	   (eq font-lock-constant-face 'font-lock-constant-face))
       ;; This doesn't exist in some earlier versions of XEmacs 21.
       'font-lock-constant-face
     c-label-face-name))
 
 (defconst c-reference-face-name
-  (with-no-warnings
-   (if (and (c-face-name-p 'font-lock-reference-face)
-	    (eq font-lock-reference-face 'font-lock-reference-face))
-       ;; This is considered obsolete in Emacs, but it still maps well
-       ;; to this use.  (Another reason to do this is to get unique
-       ;; faces for the test suite.)
-       'font-lock-reference-face
-     c-label-face-name)))
+  (cond
+   ((and (c-face-name-p 'font-lock-reference-face)
+	   (boundp 'font-lock-reference-face)
+	   (eq font-lock-reference-face 'font-lock-reference-face))
+    ;; This is considered obsolete in Emacs, but it still maps well
+    ;; to this use.  (Another reason to do this is to get unique
+    ;; faces for the test suite.)
+    'font-lock-reference-face)
+   ((c-face-name-p 'font-lock-constant-face)
+    'font-lock-constant-face)
+   (t c-label-face-name)))
 
 ;; This should not mapped to a face that also is used to fontify things
 ;; that aren't comments or string literals.
@@ -586,7 +592,8 @@ stuff.  Used on level 1 and higher."
 			(c-lang-const c-opt-cpp-macro-define)
 			(c-lang-const c-nonempty-syntactic-ws)
 			"\\(" (c-lang-const ; 1 + ncle + nsws
-			       c-symbol-key) "\\)"
+			       c-symbol-key)
+			"\\)"
 			(concat "\\("	; 2 + ncle + nsws + c-sym-key
 				;; Macro with arguments - a "function".
 				"\\((\\)" ; 3 + ncle + nsws + c-sym-key
@@ -1197,8 +1204,21 @@ casts and declarations are fontified.  Used on level 2 and higher."
   ;; arguments lists (i.e. lists enclosed by <...>) is more strict about what
   ;; characters it allows within the list.
   (let ((type (and (> match-pos (point-min))
-		   (c-get-char-property (1- match-pos) 'c-type))))
-    (cond ((not (memq (char-before match-pos) '(?\( ?, ?\[ ?< ?{)))
+		   (c-get-char-property (1- match-pos) 'c-type)))
+	id-pos)
+    (cond
+     ;; Are we just after something like "(foo((bar))" ?
+     ((and (eq (char-before match-pos) ?\))
+	   (c-go-list-backward match-pos)
+	   (progn
+	     (c-backward-syntactic-ws)
+	     (and (setq id-pos (c-on-identifier))
+		  (goto-char id-pos)
+		  (progn
+		    (c-backward-syntactic-ws)
+		    (eq (char-before) ?\()))))
+      (c-get-fontification-context (point) not-front-decl toplev))
+	  ((not (memq (char-before match-pos) '(?\( ?, ?\[ ?< ?{)))
 	   (cons (and toplev 'top) nil))
 	  ;; A control flow expression or a decltype
 	  ((and (eq (char-before match-pos) ?\()

@@ -129,6 +129,7 @@
 ;; us from emitting warnings when compiling files which use cl-lib without
 ;; requiring it! (bug#30635)
 (eval-when-compile (require 'cl-lib))
+(eval-when-compile (require 'subr-x))
 
 ;; The feature of compiling in a specific target Emacs version
 ;; has been turned off because compile time options are a bad idea.
@@ -1185,27 +1186,22 @@ message buffer `default-directory'."
 (defun byte-compile--first-symbol-with-pos (form)
   "Return the first symbol with position in form, or nil if none.
 Order is by depth-first search."
-  (cond
-   ((symbol-with-pos-p form) form)
-   ((consp form)
-    (or (byte-compile--first-symbol-with-pos (car form))
-        (let ((sym nil))
-          (setq form (cdr form))
-          (while (and (consp form)
-                      (not (setq sym (byte-compile--first-symbol-with-pos
-                                      (car form)))))
-            (setq form (cdr form)))
-          (or sym
-              (and form (byte-compile--first-symbol-with-pos form))))))
-   ((or (vectorp form) (recordp form))
-    (let ((len (length form))
-          (i 0)
-          (sym nil))
-      (while (and (< i len)
-                  (not (setq sym (byte-compile--first-symbol-with-pos
-                                  (aref form i)))))
-        (setq i (1+ i)))
-      sym))))
+  (named-let loop ((form form)
+                   (depth 10))          ;Arbitrary limit.
+    (cond
+     ((<= depth 0) nil)                 ;Avoid cycles (bug#58601).
+     ((symbol-with-pos-p form) form)
+     ((consp form)
+      (or (loop (car form) (1- depth))
+          (loop (cdr form) (1- depth))))
+     ((or (vectorp form) (recordp form))
+      (let ((len (length form))
+            (i 0)
+            (sym nil))
+        (while (and (< i len)
+                    (not (setq sym (loop (aref form i) (1- depth)))))
+          (setq i (1+ i)))
+        sym)))))
 
 (defun byte-compile--warning-source-offset ()
   "Return a source offset from `byte-compile-form-stack' or nil if none."
@@ -2569,7 +2565,7 @@ list that represents a doc string reference.
   ;; macroexpand-all.
   ;; (if (memq byte-optimize '(t source))
   ;;     (setq form (byte-optimize-form form for-effect)))
-  (cconv-closure-convert form))
+  (cconv-closure-convert form byte-compile-bound-variables))
 
 ;; byte-hunk-handlers cannot call this!
 (defun byte-compile-toplevel-file-form (top-level-form)
@@ -4667,13 +4663,6 @@ Return the offset in the form (VAR . OFFSET)."
           (byte-compile-form (cadr clause))
         (byte-compile-push-constant nil)))))
 
-(defun byte-compile-not-lexical-var-p (var)
-  (or (not (symbolp var))
-      (special-variable-p var)
-      (memq var byte-compile-bound-variables)
-      (memq var '(nil t))
-      (keywordp var)))
-
 (defun byte-compile-bind (var init-lexenv)
   "Emit byte-codes to bind VAR and update `byte-compile--lexical-environment'.
 INIT-LEXENV should be a lexical-environment alist describing the
@@ -4682,7 +4671,7 @@ Return non-nil if the TOS value was popped."
   ;; The mix of lexical and dynamic bindings mean that we may have to
   ;; juggle things on the stack, to move them to TOS for
   ;; dynamic binding.
-  (if (and lexical-binding (not (byte-compile-not-lexical-var-p var)))
+  (if (not (cconv--not-lexical-var-p var byte-compile-bound-variables))
       ;; VAR is a simple stack-allocated lexical variable.
       (progn (push (assq var init-lexenv)
                    byte-compile--lexical-environment)
