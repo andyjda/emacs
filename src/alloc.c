@@ -50,6 +50,10 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include TERM_HEADER
 #endif /* HAVE_WINDOW_SYSTEM */
 
+#ifdef HAVE_TREE_SITTER
+#include "treesit.h"
+#endif
+
 #include <flexmember.h>
 #include <verify.h>
 #include <execinfo.h>           /* For backtrace.  */
@@ -3170,6 +3174,12 @@ cleanup_vector (struct Lisp_Vector *vector)
       if (uptr->finalizer)
 	uptr->finalizer (uptr->p);
     }
+#ifdef HAVE_TREE_SITTER
+  else if (PSEUDOVECTOR_TYPEP (&vector->header, PVEC_TS_PARSER))
+    treesit_delete_parser (PSEUDOVEC_STRUCT (vector, Lisp_TS_Parser));
+  else if (PSEUDOVECTOR_TYPEP (&vector->header, PVEC_TS_COMPILED_QUERY))
+    treesit_delete_query (PSEUDOVEC_STRUCT (vector, Lisp_TS_Query));
+#endif
 #ifdef HAVE_MODULES
   else if (PSEUDOVECTOR_TYPEP (&vector->header, PVEC_MODULE_FUNCTION))
     {
