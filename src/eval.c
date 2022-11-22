@@ -550,15 +550,12 @@ usage: (function ARG)  */)
 	  CHECK_STRING (docstring);
 	  cdr = Fcons (XCAR (cdr), Fcons (docstring, XCDR (XCDR (cdr))));
 	}
-      Lisp_Object env
-        = NILP (Vinternal_filter_closure_env_function)
-          ? Vinternal_interpreter_environment
-          /* FIXME: This macroexpands the body, so we should use the resulting
-             macroexpanded code!  */
-          : call2 (Vinternal_filter_closure_env_function,
-                   Fcons (Qprogn, CONSP (cdr) ? XCDR (cdr) : cdr),
-                   Vinternal_interpreter_environment);
-      return Fcons (Qclosure, Fcons (env, cdr));
+      if (NILP (Vinternal_make_interpreted_closure_function))
+        return Fcons (Qclosure, Fcons (Vinternal_interpreter_environment, cdr));
+      else
+        return call2 (Vinternal_make_interpreted_closure_function,
+                      Fcons (Qlambda, cdr),
+                      Vinternal_interpreter_environment);
     }
   else
     /* Simply quote the argument.  */
@@ -1332,7 +1329,7 @@ Then the value of the last BODY form is returned from the `condition-case'
 expression.
 
 The special handler (:success BODY...) is invoked if BODYFORM terminated
-without signalling an error.  BODY is then evaluated with VAR bound to
+without signaling an error.  BODY is then evaluated with VAR bound to
 the value returned by BODYFORM.
 
 See also the function `signal' for more info.
@@ -1812,7 +1809,7 @@ signal_or_quit (Lisp_Object error_symbol, Lisp_Object data, bool keyboard_quit)
       unbind_to (count, Qnil);
     }
 
-  /* If an error is signalled during a Lisp hook in redisplay, write a
+  /* If an error is signaled during a Lisp hook in redisplay, write a
      backtrace into the buffer *Redisplay-trace*.  */
   if (!debugger_called && !NILP (error_symbol)
       && backtrace_on_redisplay_error
@@ -2437,7 +2434,9 @@ eval_sub (Lisp_Object form)
 
       else if (XSUBR (fun)->max_args == UNEVALLED)
 	val = (XSUBR (fun)->function.aUNEVALLED) (args_left);
-      else if (XSUBR (fun)->max_args == MANY)
+      else if (XSUBR (fun)->max_args == MANY
+	       || XSUBR (fun)->max_args > 8)
+
 	{
 	  /* Pass a vector of evaluated arguments.  */
 	  Lisp_Object *vals;
@@ -3000,7 +2999,8 @@ funcall_subr (struct Lisp_Subr *subr, ptrdiff_t numargs, Lisp_Object *args)
   if (numargs >= subr->min_args)
     {
       /* Conforming call to finite-arity subr.  */
-      if (numargs <= subr->max_args)
+      if (numargs <= subr->max_args
+	  && subr->max_args <= 8)
 	{
 	  Lisp_Object argbuf[8];
 	  Lisp_Object *a;
@@ -3036,15 +3036,13 @@ funcall_subr (struct Lisp_Subr *subr, ptrdiff_t numargs, Lisp_Object *args)
 	      return subr->function.a8 (a[0], a[1], a[2], a[3], a[4], a[5],
 					a[6], a[7]);
 	    default:
-	      /* If a subr takes more than 8 arguments without using MANY
-		 or UNEVALLED, we need to extend this function to support it.
-		 Until this is done, there is no way to call the function.  */
-	      emacs_abort ();
+	      emacs_abort (); 	/* Can't happen. */
 	    }
 	}
 
       /* Call to n-adic subr.  */
-      if (subr->max_args == MANY)
+      if (subr->max_args == MANY
+	  || subr->max_args > 8)
 	return subr->function.aMANY (numargs, args);
     }
 
@@ -4361,10 +4359,10 @@ alist of active lexical bindings.  */);
      (Just imagine if someone makes it buffer-local).  */
   Funintern (Qinternal_interpreter_environment, Qnil);
 
-  DEFVAR_LISP ("internal-filter-closure-env-function",
-	       Vinternal_filter_closure_env_function,
+  DEFVAR_LISP ("internal-make-interpreted-closure-function",
+	       Vinternal_make_interpreted_closure_function,
 	       doc: /* Function to filter the env when constructing a closure.  */);
-  Vinternal_filter_closure_env_function = Qnil;
+  Vinternal_make_interpreted_closure_function = Qnil;
 
   Vrun_hooks = intern_c_string ("run-hooks");
   staticpro (&Vrun_hooks);

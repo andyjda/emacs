@@ -4385,7 +4385,7 @@ it is left unchanged."
                      (setq method (or (cdr server) res))
                      (throw 'exit nil))))
                 ((and (stringp (car server))
-                      (string= (car server) from))
+                      (string-equal-ignore-case (car server) from))
                  (setq method (cdr server))
                  (throw 'exit nil)))))
       (when method
@@ -7034,6 +7034,7 @@ is a function used to switch to and display the mail buffer."
           ;; Firefox sends us In-Reply-To headers that are Message-IDs
           ;; without <> around them.  Fix that.
           (when (and (eq (car h) 'In-Reply-To)
+                     (stringp (cdr h))
                      ;; Looks like a Message-ID.
                      (string-match-p "\\`[^ @]+@[^ @]+\\'" (cdr h))
                      (not (string-match-p "\\`<.*>\\'" (cdr h))))

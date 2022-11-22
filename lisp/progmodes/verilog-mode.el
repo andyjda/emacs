@@ -7719,7 +7719,7 @@ nil otherwise."
                           (setq match t)
                           (setq elm nil))
                       (setq elm (cdr elm)))))
-                ;; If this is a test just for exact match, return nil ot t
+                ;; If this is a test just for exact match, return nil or t
                 (if (and (equal flag 'lambda) (not (equal match 't)))
                     nil
                   match))))
@@ -9630,7 +9630,7 @@ Returns REGEXP and list of ( (signal_name connection_name)... )."
 
 (defun verilog-read-auto-template (module)
   "Look for an auto_template for the instantiation of the given MODULE.
-If found returns `verilog-read-auto-template-inside' structure."
+If found returns `verilog-read-auto-template-middle' structure."
   (save-excursion
     ;; Find beginning
     (let ((pt (point)))
@@ -10024,7 +10024,7 @@ Used for __FLAGS__ in `verilog-expand-command'."
 
 (defvar verilog-dir-cache-preserving nil
   "If true, the directory cache is enabled, and file system changes are ignored.
-See `verilog-dir-exists-p' and `verilog-dir-files'.")
+See `verilog-dir-file-exists-p' and `verilog-dir-files'.")
 
 ;; If adding new cached variable, add also to verilog-preserve-dir-cache
 (defvar verilog-dir-cache-list nil

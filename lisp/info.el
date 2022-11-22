@@ -1883,6 +1883,9 @@ See `completing-read' for a description of arguments and usage."
    (t (complete-with-action
        code Info-read-node-completion-table string predicate))))
 
+(defvar Info-minibuf-history nil
+  "History for `Info-read-node-name'.")
+
 ;; Arrange to highlight the proper letters in the completion list buffer.
 (defun Info-read-node-name (prompt &optional default)
   "Read an Info node name with completion, prompting with PROMPT.
@@ -2663,7 +2666,7 @@ new buffer."
 (defconst Info-menu-entry-name-re "\\(?:[^:]\\|:[^:,.;() \t\n]\\)*"
   ;; We allow newline because this is also used in Info-follow-reference,
   ;; where the xref name might be wrapped over two lines.
-  "Regexp that matches a menu entry name upto but not including the colon.
+  "Regexp that matches a menu entry name up to but not including the colon.
 Because of ambiguities, this should be concatenated with something like
 `:' and `Info-following-node-name-re'.")
 

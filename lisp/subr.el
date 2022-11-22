@@ -161,16 +161,18 @@ of previous VARs.
     `(progn . ,(nreverse exps))))
 
 (defmacro setq-local (&rest pairs)
-  "Make variables in PAIRS buffer-local and assign them the corresponding values.
+  "Make each VARIABLE buffer-local and assign to it the corresponding VALUE.
 
-PAIRS is a list of variable/value pairs.  For each variable, make
-it buffer-local and assign it the corresponding value.  The
-variables are literal symbols and should not be quoted.
+The arguments are variable/value pairs  For each VARIABLE in a pair,
+make VARIABLE buffer-local and assign to it the corresponding VALUE
+of the pair.  The VARIABLEs are literal symbols and should not be quoted.
 
-The second VALUE is not computed until after the first VARIABLE
-is set, and so on; each VALUE can use the new value of variables
-set earlier in the `setq-local'.  The return value of the
-`setq-local' form is the value of the last VALUE.
+The VALUE of the Nth pair is not computed until after the VARIABLE
+of the (N-1)th pair is set; thus, each VALUE can use the new VALUEs
+of VARIABLEs set by earlier pairs.
+
+The return value of the `setq-local' form is the VALUE of the last
+pair.
 
 \(fn [VARIABLE VALUE]...)"
   (declare (debug setq))
@@ -1217,7 +1219,7 @@ Subkeymaps may be modified but are not canonicalized."
 
 (defun keyboard-translate (from to)
   "Translate character FROM to TO on the current terminal.
-This is a legacy function; see `keymap-translate' for the
+This is a legacy function; see `key-translate' for the
 recommended function to use instead.
 
 This function creates a `keyboard-translate-table' if necessary
@@ -1296,7 +1298,7 @@ KEY is a string or vector representing a sequence of keystrokes."
 
 (defun local-key-binding (keys &optional accept-default)
   "Return the binding for command KEYS in current local keymap only.
-This is a legacy function; see `keymap-local-binding' for the
+This is a legacy function; see `keymap-local-lookup' for the
 recommended function to use instead.
 
 KEYS is a string or vector, a sequence of keystrokes.
@@ -1310,7 +1312,7 @@ about this."
 
 (defun global-key-binding (keys &optional accept-default)
   "Return the binding for command KEYS in current global keymap only.
-This is a legacy function; see `keymap-global-binding' for the
+This is a legacy function; see `keymap-global-lookup' for the
 recommended function to use instead.
 
 KEYS is a string or vector, a sequence of keystrokes.
@@ -2582,7 +2584,7 @@ Uses the `derived-mode-parent' property of the symbol to trace backwards."
 (defun major-mode-restore (&optional avoided-modes)
   "Restore major mode earlier suspended with `major-mode-suspend'.
 If there was no earlier suspended major mode, then fallback to `normal-mode',
-tho trying to avoid AVOIDED-MODES."
+though trying to avoid AVOIDED-MODES."
   (if major-mode--suspended
       (funcall (prog1 major-mode--suspended
                  (kill-local-variable 'major-mode--suspended)))
@@ -6909,7 +6911,7 @@ string will be displayed only if BODY takes longer than TIMEOUT seconds.
 If FUNC is a function alias, return the function alias chain.
 
 If the function alias chain contains loops, an error will be
-signalled.  If NOERROR, the non-loop parts of the chain is returned."
+signaled.  If NOERROR, the non-loop parts of the chain is returned."
   (declare (side-effect-free t))
   (let ((chain nil)
         (orig-func func))
@@ -7059,7 +7061,7 @@ CONDITION is either:
 
 (defun match-buffers (condition &optional buffers arg)
   "Return a list of buffers that match CONDITION.
-See `buffer-match' for details on CONDITION.  By default all
+See `buffer-match-p' for details on CONDITION.  By default all
 buffers are checked, this can be restricted by passing an
 optional argument BUFFERS, set to a list of buffers to check.
 ARG is passed to `buffer-match', for predicate conditions in
