@@ -295,7 +295,7 @@ init_treesit_functions (void)
      a node.  But since we can just retrieve a new node, it shouldn't
      be a limitation.
 
-   - I didn't expose setting timeout and cancelation flag for a
+   - I didn't expose setting timeout and cancellation flag for a
      parser, mainly because I don't think they are really necessary
      in Emacs's use cases.
 
@@ -840,11 +840,11 @@ treesit_ensure_position_synced (Lisp_Object parser)
 static void
 treesit_check_buffer_size (struct buffer *buffer)
 {
-  ptrdiff_t buffer_size = (BUF_Z (buffer) - BUF_BEG (buffer));
-  if (buffer_size > UINT32_MAX)
+  ptrdiff_t buffer_size_bytes = (BUF_Z_BYTE (buffer) - BUF_BEG_BYTE (buffer));
+  if (buffer_size_bytes > UINT32_MAX)
     xsignal2 (Qtreesit_buffer_too_large,
 	      build_pure_c_string ("Buffer size cannot be larger than 4GB"),
-	      make_fixnum (buffer_size));
+	      make_fixnum (buffer_size_bytes));
 }
 
 static Lisp_Object treesit_make_ranges (const TSRange *, uint32_t, struct buffer *);
@@ -891,7 +891,7 @@ treesit_ensure_parsed (Lisp_Object parser)
      when 1) language is not set (impossible in Emacs because the user
      has to supply a language to create a parser), 2) parse canceled
      due to timeout (impossible because we don't set a timeout), 3)
-     parse canceled due to cancelation flag (impossible because we
+     parse canceled due to cancellation flag (impossible because we
      don't set the flag).  (See comments for ts_parser_parse in
      tree_sitter/api.h.)  */
   if (new_tree == NULL)
@@ -983,8 +983,8 @@ make_treesit_parser (Lisp_Object buffer, TSParser *parser,
   TSInput input = {lisp_parser, treesit_read_buffer, TSInputEncodingUTF8};
   lisp_parser->input = input;
   lisp_parser->need_reparse = true;
-  lisp_parser->visible_beg = BUF_BEGV (XBUFFER (buffer));
-  lisp_parser->visible_end = BUF_ZV (XBUFFER (buffer));
+  lisp_parser->visible_beg = BUF_BEGV_BYTE (XBUFFER (buffer));
+  lisp_parser->visible_end = BUF_ZV_BYTE (XBUFFER (buffer));
   lisp_parser->timestamp = 0;
   lisp_parser->deleted = false;
   lisp_parser->has_range = false;
@@ -1535,7 +1535,7 @@ positions.  PARSER is the parser issuing the notification.  */)
   CHECK_SYMBOL (function);
 
   Lisp_Object functions = XTS_PARSER (parser)->after_change_functions;
-  if (!Fmemq (function, functions))
+  if (NILP (Fmemq (function, functions)))
     XTS_PARSER (parser)->after_change_functions = Fcons (function, functions);
   return Qnil;
 }
@@ -1555,7 +1555,7 @@ positions.  PARSER is the parser issuing the notification.   */)
   CHECK_SYMBOL (function);
 
   Lisp_Object functions = XTS_PARSER (parser)->after_change_functions;
-  if (Fmemq (function, functions))
+  if (!NILP (Fmemq (function, functions)))
     XTS_PARSER (parser)->after_change_functions = Fdelq (function, functions);
   return Qnil;
 }
@@ -2229,8 +2229,6 @@ treesit_predicate_match (Lisp_Object args, struct capture_range captures)
 
   Lisp_Object regexp = XCAR (args);
   Lisp_Object capture_name = XCAR (XCDR (args));
-  Lisp_Object text = treesit_predicate_capture_name_to_text (capture_name,
-							     captures);
 
   /* It's probably common to get the argument order backwards.  Catch
      this mistake early and show helpful explanation, because Emacs
@@ -2244,6 +2242,9 @@ treesit_predicate_match (Lisp_Object args, struct capture_range captures)
     xsignal1 (Qtreesit_query_error,
 	      build_pure_c_string ("The second argument to `match' should "
 				   "be a capture name, not a string"));
+
+  Lisp_Object text = treesit_predicate_capture_name_to_text (capture_name,
+							     captures);
 
   if (fast_string_match (regexp, text) >= 0)
     return true;
@@ -2568,7 +2569,8 @@ treesit_traverse_child_helper (TSNode node, bool forward, bool named)
 }
 
 /* Return true if NODE matches PRED.  PRED can be a string or a
-   function.  This function doesn't check for PRED's type.  */
+   function.  This function assumes PRED is either a string or a
+   function.  */
 static bool
 treesit_traverse_match_predicate (TSNode node, Lisp_Object pred,
 				  Lisp_Object parser)

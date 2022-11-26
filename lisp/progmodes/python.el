@@ -578,7 +578,7 @@ the {...} holes that appear within f-strings."
   ;; FIXME: This will fail to properly highlight strings appearing
   ;; within the {...} of an f-string.
   ;; We could presumably fix it by running
-  ;; `font-lock-fontify-syntactically-region' (as is done in
+  ;; `font-lock-default-fontify-syntactically-region' (as is done in
   ;; `sm-c--cpp-fontify-syntactically', for example) after removing
   ;; the `face' property, but I'm not sure it's worth the effort and
   ;; the risks.
@@ -1113,7 +1113,9 @@ fontified."
 
    :feature 'decorator
    :language 'python
-   '((decorator) @font-lock-type-face)
+   '((decorator "@" @font-lock-type-face)
+     (decorator (call function: (identifier) @font-lock-type-face))
+     (decorator (identifier) @font-lock-type-face))
 
    :feature 'type
    :language 'python
@@ -2392,55 +2394,6 @@ position, else returns nil."
     (if found
         (point)
       (ignore (goto-char point)))))
-
-
-;;; Tree-sitter navigation
-
-(defun python-treesit-beginning-of-defun (&optional arg)
-  "Tree-sitter `beginning-of-defun' function.
-ARG is the same as in `beginning-of-defun'."
-  (let ((arg (or arg 1))
-        (node (treesit-node-at (point)))
-        (function-or-class (rx (or "function" "class") "_definition")))
-    (if (> arg 0)
-        ;; Go backward.
-        (while (and (> arg 0)
-                    (setq node (treesit-search-forward-goto
-                                node function-or-class t t)))
-          ;; Here we deviate from `treesit-beginning-of-defun': if
-          ;; NODE is function_definition, find the top-level
-          ;; function_definition, if NODE is class_definition, find
-          ;; the top-level class_definition, don't mix the two like
-          ;; `treesit-beginning-of-defun' would.
-          (setq node (or (treesit-node-top-level node)
-                         node))
-          (setq arg (1- arg)))
-      ;; Go forward.
-      (while (and (< arg 0)
-                  (setq node (treesit-search-forward-goto
-                              node function-or-class)))
-        (setq node (or (treesit-node-top-level node)
-                       node))
-        (setq arg (1+ arg))))
-    (when node
-      (goto-char (treesit-node-start node))
-      t)))
-
-(defun python-treesit-end-of-defun ()
-  "Tree-sitter `end-of-defun' function."
-  ;; Why not simply get the largest node at point: when point is at
-  ;; (point-min), that gives us the root node.
-  (let* ((node (treesit-node-at (point)))
-         (top-func (treesit-node-top-level
-                    node
-                    "function_definition"))
-         (top-class (treesit-node-top-level
-                     node
-                     "class_definition")))
-    ;; Prefer function_definition over class_definition: when we are
-    ;; in a function_definition inside a class_definition, jump to the
-    ;; end of function_definition.
-    (goto-char (or (treesit-node-end (or top-func top-class)) (point)))))
 
 
 ;;; Shell integration
@@ -6653,9 +6606,8 @@ implementations: `python-mode' and `python-ts-mode'."
     (setq-local treesit-font-lock-settings python--treesit-settings)
     (setq-local imenu-create-index-function
                 #'python-imenu-treesit-create-index)
-    (setq-local beginning-of-defun-function
-                #'python-treesit-beginning-of-defun)
-    (setq-local end-of-defun-function #'python-treesit-end-of-defun)
+    (setq-local treesit-defun-type-regexp (rx (or "function" "class")
+                                              "_definition"))
     (treesit-major-mode-setup)))
 
 ;;; Completion predicates for M-x

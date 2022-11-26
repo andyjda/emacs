@@ -116,18 +116,14 @@
   "C keywords for tree-sitter font-locking.")
 
 (defvar java-ts-mode--operators
-  '("@" "+" ":" "++" "-" "--" "&" "&&" "|" "||"
-    "!=" "==" "*" "/" "%" "<" "<=" ">" ">=" "="
-    "-=" "+=" "*=" "/=" "%=" "->" "^" "^=" "&="
-    "|=" "~" ">>" ">>>" "<<" "::" "?")
+  '("+" ":" "++" "-" "--" "&" "&&" "|" "||" "="
+    "!=" "==" "*" "/" "%" "<" "<=" ">" ">="
+    "-=" "+=" "*=" "/=" "%=" "->" "^" "^="
+    "|=" "~" ">>" ">>>" "<<" "::" "?" "&=")
   "C operators for tree-sitter font-locking.")
 
 (defvar java-ts-mode--font-lock-settings
   (treesit-font-lock-rules
-   :language 'java
-   :override t
-   :feature 'basic
-   '((identifier) @font-lock-variable-name-face)
    :language 'java
    :override t
    :feature 'comment
@@ -138,8 +134,7 @@
    :feature 'constant
    `(((identifier) @font-lock-constant-face
       (:match "^[A-Z_][A-Z_\\d]*$" @font-lock-constant-face))
-     (true) @font-lock-constant-face
-     (false) @font-lock-constant-face)
+     [(true) (false)] @font-lock-constant-face)
    :language 'java
    :override t
    :feature 'keyword
@@ -149,7 +144,8 @@
    :language 'java
    :override t
    :feature 'operator
-   `([,@java-ts-mode--operators] @font-lock-builtin-face)
+   `([,@java-ts-mode--operators] @font-lock-operator-face
+     "@" @font-lock-constant-face)
    :language 'java
    :override t
    :feature 'annotation
@@ -166,8 +162,12 @@
    :override t
    :feature 'literal
    `((null_literal) @font-lock-constant-face
-     (decimal_floating_point_literal)  @font-lock-constant-face
-     (hex_floating_point_literal) @font-lock-constant-face)
+     (binary_integer_literal)  @font-lock-number-face
+     (decimal_integer_literal) @font-lock-number-face
+     (hex_integer_literal) @font-lock-number-face
+     (octal_integer_literal) @font-lock-number-face
+     (decimal_floating_point_literal) @font-lock-number-face
+     (hex_floating_point_literal) @font-lock-number-face)
    :language 'java
    :override t
    :feature 'type
@@ -191,6 +191,8 @@
 
      (method_reference (identifier) @font-lock-type-face)
 
+     (scoped_identifier (identifier) @font-lock-variable-name-face)
+
      ((scoped_identifier name: (identifier) @font-lock-type-face)
       (:match "^[A-Z]" @font-lock-type-face))
 
@@ -206,6 +208,12 @@
    `((method_declaration
       name: (identifier) @font-lock-function-name-face)
 
+     (variable_declarator
+      name: (identifier) @font-lock-variable-name-face)
+
+     (element_value_pair
+      key: (identifier) @font-lock-property-face)
+
      (formal_parameter
       name: (identifier) @font-lock-variable-name-face)
 
@@ -220,7 +228,15 @@
      (method_invocation
       name: (identifier) @font-lock-function-name-face)
 
-     (argument_list (identifier) @font-lock-variable-name-face)))
+     (argument_list (identifier) @font-lock-variable-name-face))
+
+   :language 'java
+   :feature 'bracket
+   '((["(" ")" "[" "]" "{" "}"]) @font-lock-bracket-face)
+
+   :language 'java
+   :feature 'delimiter
+   '((["," ":" ";"]) @font-lock-delimiter-face))
   "Tree-sitter font-lock settings.")
 
 (defun java-ts-mode--imenu-1 (node)
@@ -248,33 +264,27 @@ the subtrees."
 (defun java-ts-mode--imenu ()
   "Return Imenu alist for the current buffer."
   (let* ((node (treesit-buffer-root-node))
-         (class-tree
-          `("Class" . ,(java-ts-mode--imenu-1
-                        (treesit-induce-sparse-tree
-                         node "^class_declaration$" nil 1000))))
-         (interface-tree
-          `("Interface" . ,(java-ts-mode--imenu-1
-                            (treesit-induce-sparse-tree
-                             node "^interface_declaration$"  nil 1000))))
-         (enum-tree
-          `("Enum" . ,(java-ts-mode--imenu-1
-                       (treesit-induce-sparse-tree
-                        node "^enum_declaration$"  nil 1000))))
-         (record-tree
-          `("Record" . ,(java-ts-mode--imenu-1
-                         (treesit-induce-sparse-tree
-                          node "^record_declaration$"  nil 1000))))
-         (method-tree
-          `("Method" . ,(java-ts-mode--imenu-1
-                         (treesit-induce-sparse-tree
-                          node "^method_declaration$"  nil 1000)))))
-    (cl-remove-if
-     #'null
-     `(,(when (cdr class-tree) class-tree)
-       ,(when (cdr interface-tree) interface-tree)
-       ,(when (cdr enum-tree) enum-tree)
-       ,(when (cdr record-tree) record-tree)
-       ,(when (cdr method-tree) method-tree)))))
+         (class-tree (treesit-induce-sparse-tree
+                      node "^class_declaration$" nil 1000))
+         (interface-tree (treesit-induce-sparse-tree
+                          node "^interface_declaration$" nil 1000))
+         (enum-tree (treesit-induce-sparse-tree
+                     node "^enum_declaration$" nil 1000))
+         (record-tree (treesit-induce-sparse-tree
+                       node "^record_declaration$"  nil 1000))
+         (method-tree (treesit-induce-sparse-tree
+                       node "^method_declaration$" nil 1000))
+         (class-index (java-ts-mode--imenu-1 class-tree))
+         (interface-index (java-ts-mode--imenu-1 interface-tree))
+         (enum-index (java-ts-mode--imenu-1 enum-tree))
+         (record-index (java-ts-mode--imenu-1 record-tree))
+         (method-index (java-ts-mode--imenu-1 method-tree)))
+    (append
+     (when class-index `(("Class" . ,class-index)))
+     (when interface-index `(("Interface" . ,interface-index)))
+     (when enum-index `(("Enum" . ,enum-index)))
+     (when record-index `(("Record" . ,record-index)))
+     (when method-index `(("Method" . ,method-index))))))
 
 ;;;###autoload
 (define-derived-mode java-ts-mode prog-mode "Java"
@@ -307,9 +317,9 @@ the subtrees."
   ;; Font-lock.
   (setq-local treesit-font-lock-settings java-ts-mode--font-lock-settings)
   (setq-local treesit-font-lock-feature-list
-              '((basic comment keyword constant string operator)
-                (type definition expression literal annotation)
-                ()))
+              '((comment constant keyword string)
+                (annotation definition expression literal type)
+                (bracket delimiter operator)))
 
   ;; Imenu.
   (setq-local imenu-create-index-function #'java-ts-mode--imenu)

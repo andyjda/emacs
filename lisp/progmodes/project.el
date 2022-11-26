@@ -175,8 +175,14 @@ function; the only practical limitation is to use values that
 `cl-defmethod' can dispatch on, like a cons cell, or a list, or a
 CL struct.")
 
-(defvar project-current-inhibit-prompt nil
-  "Non-nil to skip prompting the user in `project-current'.")
+(define-obsolete-variable-alias
+  'project-current-inhibit-prompt
+  'project-current-directory-override
+  "29.1")
+
+(defvar project-current-directory-override nil
+  "Value to use instead of `default-directory' when detecting the project.
+When it is non-nil, `project-current' will always skip prompting too.")
 
 ;;;###autoload
 (defun project-current (&optional maybe-prompt directory)
@@ -195,11 +201,12 @@ ignored (per `project-ignores').
 
 See the doc string of `project-find-functions' for the general form
 of the project instance object."
-  (unless directory (setq directory default-directory))
+  (unless directory (setq directory (or project-current-directory-override
+                                        default-directory)))
   (let ((pr (project--find-in-directory directory)))
     (cond
      (pr)
-     ((unless project-current-inhibit-prompt
+     ((unless project-current-directory-override
         maybe-prompt)
       (setq directory (project-prompt-project-dir)
             pr (project--find-in-directory directory))))
@@ -250,6 +257,11 @@ still related to it.  If the project deals with source code then,
 depending on the languages used, this list should include the
 headers search path, load path, class path, and so on."
   nil)
+
+(cl-defgeneric project-name (project)
+  "A human-readable name for the project.
+Nominally unique, but not enforced."
+  (file-name-base (directory-file-name (project-root project))))
 
 (cl-defgeneric project-ignores (_project _dir)
   "Return the list of glob patterns to ignore inside DIR.
@@ -389,6 +401,15 @@ you might have to restart Emacs to see the effect."
   :type 'boolean
   :version "29.1"
   :safe #'booleanp)
+
+(defcustom project-vc-name nil
+  "When non-nil, the name of the current VC project.
+
+The best way to change the value a VC project reports as its
+name, is by setting this in .dir-locals.el."
+  :type 'string
+  :version "29.1"
+  :safe #'stringp)
 
 ;; FIXME: Using the current approach, major modes are supposed to set
 ;; this variable to a buffer-local value.  So we don't have access to
@@ -688,6 +709,10 @@ DIRS must contain directory names."
                                   modules)))
         (push buf bufs)))
     (nreverse bufs)))
+
+(cl-defmethod project-name ((_project (head vc)))
+  (or project-vc-name
+      (cl-call-next-method)))
 
 
 ;;; Project commands
@@ -1680,10 +1705,8 @@ to directory DIR."
   (let ((command (if (symbolp project-switch-commands)
                      project-switch-commands
                    (project--switch-project-command))))
-    (with-temp-buffer
-      (let ((default-directory dir)
-            (project-current-inhibit-prompt t))
-        (call-interactively command)))))
+    (let ((project-current-directory-override dir))
+      (call-interactively command))))
 
 (provide 'project)
 ;;; project.el ends here

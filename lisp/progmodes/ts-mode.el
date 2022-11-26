@@ -28,6 +28,8 @@
 (require 'rx)
 (require 'js)
 
+(declare-function treesit-parser-create "treesit.c")
+
 (defcustom ts-mode-indent-offset 2
   "Number of spaces for each indentation step in `ts-mode'."
   :version "29.1"
@@ -101,6 +103,13 @@
     "while" "with" "yield")
   "TypeScript keywords for tree-sitter font-locking.")
 
+(defvar ts-mode--operators
+  '("=" "+=" "-=" "*=" "/=" "%=" "**=" "<<=" ">>=" ">>>=" "&=" "^="
+    "|=" "&&=" "||=" "??=" "==" "!=" "===" "!==" ">" ">=" "<" "<=" "+"
+    "-" "*" "/" "%" "++" "--" "**" "&" "|" "^" "~" "<<" ">>" ">>>"
+    "&&" "||" "!" "?.")
+  "TypeScript operators for tree-sitter font-locking.")
+
 (defvar ts-mode--font-lock-settings
   (treesit-font-lock-rules
    :language 'tsx
@@ -114,8 +123,7 @@
    `(((identifier) @font-lock-constant-face
       (:match "^[A-Z_][A-Z_\\d]*$" @font-lock-constant-face))
 
-     [(true) (false) (null)] @font-lock-constant-face
-     (number) @font-lock-constant-face)
+     [(true) (false) (null)] @font-lock-constant-face)
 
    :language 'tsx
    :override t
@@ -209,28 +217,9 @@
 
    :language 'tsx
    :override t
-   :feature 'property
-   `((pair key: (property_identifier) @font-lock-variable-name-face)
-
-     (pair value: (identifier) @font-lock-variable-name-face)
-
-     (pair
-      key: (property_identifier) @font-lock-function-name-face
-      value: [(function) (arrow_function)])
-
-     (property_signature
-      name: (property_identifier) @font-lock-variable-name-face)
-
-     ((shorthand_property_identifier) @font-lock-variable-name-face)
-
-     ((shorthand_property_identifier_pattern)
-      @font-lock-variable-name-face))
-
-   :language 'tsx
-   :override t
    :feature 'pattern
    `((pair_pattern
-      key: (property_identifier) @font-lock-variable-name-face)
+      key: (property_identifier) @font-lock-property-face)
 
      (array_pattern (identifier) @font-lock-variable-name-face))
 
@@ -249,7 +238,43 @@
       [(nested_identifier (identifier)) (identifier)]
       @font-lock-function-name-face)
 
-     (jsx_attribute (property_identifier) @font-lock-constant-face)))
+     (jsx_attribute (property_identifier) @font-lock-constant-face))
+
+   :language 'tsx
+   :feature 'number
+   `((number) @font-lock-number-face
+     ((identifier) @font-lock-number-face
+      (:match "^\\(:?NaN\\|Infinity\\)$" @font-lock-number-face)))
+
+   :language 'tsx
+   :feature 'operator
+   `([,@ts-mode--operators] @font-lock-operator-face
+     (ternary_expression ["?" ":"] @font-lock-operator-face))
+
+   :language 'tsx
+   :feature 'bracket
+   '((["(" ")" "[" "]" "{" "}"]) @font-lock-bracket-face)
+
+   :language 'tsx
+   :feature 'delimiter
+   '((["," "." ";" ":"]) @font-lock-delimiter-face)
+
+   :language 'tsx
+   :feature 'escape-sequence
+   :override t
+   '((escape_sequence) @font-lock-escape-face)
+
+   :language 'tsx
+   :override t
+   :feature 'property
+   `(((property_identifier) @font-lock-property-face)
+
+     (pair value: (identifier) @font-lock-variable-name-face)
+
+     ((shorthand_property_identifier) @font-lock-property-face)
+
+     ((shorthand_property_identifier_pattern)
+      @font-lock-property-face)))
   "Tree-sitter font-lock settings.")
 
 ;;;###autoload
@@ -296,8 +321,8 @@
     (setq-local treesit-font-lock-settings ts-mode--font-lock-settings)
     (setq-local treesit-font-lock-feature-list
                 '((comment declaration)
-                  (string keyword identifier expression constant)
-                  (property pattern jsx)))
+                  (constant expression identifier keyword number string)
+                  (bracket delimiter jsx pattern property)))
     ;; Imenu.
     (setq-local imenu-create-index-function #'js--treesit-imenu)
 

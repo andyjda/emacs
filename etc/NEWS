@@ -1757,9 +1757,10 @@ the second one will switch to the "*Completions*" buffer.
 
 ---
 *** New user option 'completion-auto-wrap'.
-When non-nil, the commands 'next-completion' and 'previous-completion'
-automatically wrap around on reaching the beginning or the end of
-the "*Completions*" buffer.
+When non-nil, the commands 'next-completion', 'previous-completion',
+'next-line-completion' and 'previous-line-completion' automatically
+wrap around on reaching the beginning or the end of the "*Completions*"
+buffer.
 
 +++
 *** New values for the 'completion-auto-help' user option.
@@ -2989,6 +2990,14 @@ indentation, Imenu, which-func, and navigation.
 A major mode based on the tree-sitter library for editing programs
 in the JSON language.  It includes support for font-locking,
 indentation, Imenu, which-func, and navigation.
+
+** New mode 'csharp-ts-mode'.
+A major mode based on the tree-sitter library for editing programs
+in the C# language.  It includes support for font-locking,
+indentation, Imenu, which-func, and navigation.
+
+** New mode 'csharp-mode'.
+A major mode based on CC Mode for editing programs in the C# language.
 
 
 * Incompatible Lisp Changes in Emacs 29.1
