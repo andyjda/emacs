@@ -405,7 +405,9 @@ one char."
 
 (defun xwidget-log (&rest msg)
   "Log MSG to a buffer."
-  (let ((buf (get-buffer-create " *xwidget-log*")))
+  ;; (let ((buf (get-buffer-create " *xwidget-log*")))
+  ;; for testing: no space in the log buffer, so it persists
+  (let ((buf (get-buffer-create "*xwidget-log*")))
     (with-current-buffer buf
       (insert (apply #'format msg))
       (insert "\n"))))
@@ -431,6 +433,15 @@ one char."
   (when (timerp xwidget-webkit--progress-update-timer)
     (cancel-timer xwidget-webkit--progress-update-timer)))
 
+(defun message-and-log (format-string &rest args)
+  (xwidget-log (message format-string args)))
+
+(defun xwidget-cancel-timer ()
+  ;; (message-and-log "canceling timer")
+  (when (timerp xwidget-webkit--progress-update-timer)
+    (cancel-timer xwidget-webkit--progress-update-timer))
+  (setq xwidget-webkit--loading-p nil))
+
 (defun xwidget-webkit-callback (xwidget xwidget-event-type)
   "Callback for xwidgets.
 XWIDGET instance, XWIDGET-EVENT-TYPE depends on the originating xwidget."
@@ -440,6 +451,8 @@ XWIDGET instance, XWIDGET-EVENT-TYPE depends on the originating xwidget."
     (cond ((eq xwidget-event-type 'load-changed)
            (let ((title (xwidget-webkit-title xwidget))
                  (uri (xwidget-webkit-uri xwidget)))
+                                        ;(message-and-log "event-type: %s" xwidget-event-type)
+             (message-and-log "title: %s" title)
              (when-let ((buffer (get-buffer "*Xwidget WebKit History*")))
                (with-current-buffer buffer
                  (revert-buffer)))
@@ -447,8 +460,8 @@ XWIDGET instance, XWIDGET-EVENT-TYPE depends on the originating xwidget."
                (if (string-equal (nth 3 last-input-event)
                                  "load-finished")
                    (progn
-                     (setq xwidget-webkit--loading-p nil)
-                     (cancel-timer xwidget-webkit--progress-update-timer))
+                                        ;(message "from the callback")
+                     (xwidget-cancel-timer))
                  (unless xwidget-webkit--loading-p
                    (setq xwidget-webkit--loading-p t
                          xwidget-webkit--progress-update-timer
@@ -462,6 +475,8 @@ XWIDGET instance, XWIDGET-EVENT-TYPE depends on the originating xwidget."
                        (> (length title) 0))
                (with-current-buffer (xwidget-buffer xwidget)
                  (force-mode-line-update)
+                                        ;(message-and-log "last-input-event: %s" last-input-event)
+                                        ;(message-and-log "title: %s" title)
                  (xwidget-log "webkit finished loading: %s" title)
                  ;; Do not adjust webkit size to window here, the
                  ;; selected window can be the mini-buffer window
@@ -498,6 +513,8 @@ If non-nil, plugins are enabled.  Otherwise, disabled."
     :type 'boolean
     :version "28.1"))
 
+(setq-local current-widget nil)
+
 (define-derived-mode xwidget-webkit-mode special-mode "xwidget-webkit"
   "Xwidget webkit view mode."
   (setq buffer-read-only t)
@@ -508,14 +525,16 @@ If non-nil, plugins are enabled.  Otherwise, disabled."
   (setq-local header-line-format
               (list "WebKit: "
                     '(:eval
-                      (xwidget-webkit-title (xwidget-webkit-current-session)))
-                    '(:eval
-                      (when xwidget-webkit--loading-p
-                        (let ((session (xwidget-webkit-current-session)))
-                          (format " [%d%%%%]"
-                                  (* 100
-                                     (xwidget-webkit-estimated-load-progress
-                                      session))))))))
+                      (let* ((session (xwidget-webkit-current-session))
+                             (load (if (xwidget-webkit-loading-p session)
+                                       (xwidget-get-estimate-and-reset
+                                        session)
+                                     (progn (xwidget-cancel-timer) 100))))
+                        (if xwidget-webkit--loading-p
+                            (format "loading ... [%d%%%%]"
+                                    load)
+                          (xwidget-webkit-title
+                           session))))))
   ;; Keep track of [vh]scroll when switching buffers
   (image-mode-setup-winprops))
 
@@ -528,7 +547,7 @@ If non-nil, plugins are enabled.  Otherwise, disabled."
 ;;   (setq-local tool-bar-map xwidget-webkit-tool-bar-map)
 ;;   (setq-local bookmark-make-record-function
 ;;               #'xwidget-webkit-bookmark-make-record)
-;;   (message "is it loading? %s" xwidget-webkit--loading-p)
+;;   ;(message "is it loading? %s" xwidget-webkit--loading-p)
 ;;   (setq-local header-line-format
 ;;               (list "WebKit: "
 ;;                     '(:eval
@@ -539,20 +558,25 @@ If non-nil, plugins are enabled.  Otherwise, disabled."
 ;;                                 (progn (message "the func returned nil") xwidget-webkit--loading-p))
 ;;                             (format " [%d%%%%]"
 ;;                                     (get-estimate-and-reset session))
-;;                         "  ✅")))))
+;;                           "  ✅")))))
 ;;   ;; Keep track of [vh]scroll when switching buffers
 ;;   (image-mode-setup-winprops))
 
-(defun get-estimate-and-reset (session)
-  (let ((estimate (* 100 (xwidget-webkit-estimated-load-progress
-                          session))))
-    ;; (if (>= 100 estimate)
-    ;;     (setq xwidget-webkit--loading-p nil))
+(defun xwidget-get-estimate-and-reset (session)
+  (message "xwidget-webkit-loading-p returns: %s" (xwidget-webkit-loading-p session))
+  (let ((estimate (* 100
+                     (xwidget-webkit-estimated-load-progress
+                      session))))
+                                        ;(message "session: %s" session)
+                                        ;(message "returning estimate: %s" estimate)
+    (if (>= estimate 100)
+        (xwidget-cancel-timer))
     estimate))
 
-;; (advice-add 'xwidget-webkit-goto-uri :before (lambda (&rest _args)
-;;                                                (message "setting the loading to true")
-;;                                                (setq xwidget-webkit--loading-p t)))
+(advice-add 'xwidget-webkit-goto-uri :before
+            (lambda (&rest _args)
+                                        ;(message "setting the loading to true")
+              (setq xwidget-webkit--loading-p t)))
 
 ;;; Download, save as file.
 
@@ -887,6 +911,7 @@ see `xwidget-webkit-callback'."
       (xwidget-put xw 'callback callback)
       (xwidget-put xw 'display-callback #'xwidget-webkit-display-callback)
       (xwidget-webkit-mode))
+    (setq-local current-widget xw)
     xwidget-webkit-last-session-buffer))
 
 (defun xwidget-webkit-new-session (url)
