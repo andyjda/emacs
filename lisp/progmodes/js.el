@@ -3545,6 +3545,20 @@ This function is intended for use in `after-change-functions'."
 
    :language 'javascript
    :override t
+   :feature 'property
+   ;; This needs to be before function-name feature, because methods
+   ;; can be both property and function-name, and we want them in
+   ;; function-name face.
+   `((property_identifier) @font-lock-property-face
+
+     (pair value: (identifier) @font-lock-variable-name-face)
+
+     ((shorthand_property_identifier) @font-lock-property-face)
+
+     ((shorthand_property_identifier_pattern) @font-lock-property-face))
+
+   :language 'javascript
+   :override t
    :feature 'expression
    `((assignment_expression
       left: [(identifier) @font-lock-function-name-face
@@ -3611,18 +3625,7 @@ This function is intended for use in `after-change-functions'."
    :language 'javascript
    :feature 'escape-sequence
    :override t
-   '((escape_sequence) @font-lock-escape-face)
-
-   :language 'javascript
-   :override t
-   :feature 'property
-   `((property_identifier) @font-lock-property-face
-
-     (pair value: (identifier) @font-lock-variable-name-face)
-
-     ((shorthand_property_identifier) @font-lock-property-face)
-
-     ((shorthand_property_identifier_pattern) @font-lock-property-face)))
+   '((escape_sequence) @font-lock-escape-face))
   "Tree-sitter font-lock settings.")
 
 (defun js--fontify-template-string (node override start end &rest _)
@@ -3647,7 +3650,7 @@ OVERRIDE is the override flag described in
         (setq font-beg (max start font-beg))
         (when (< font-beg end)
           (treesit-fontify-with-override
-           font-beg font-end 'font-lock-string-face override)))
+           font-beg font-end 'font-lock-string-face override start end)))
       (setq font-beg (treesit-node-end child)
             child (treesit-node-next-sibling child)))))
 
@@ -3734,7 +3737,7 @@ definition*\"."
          (var-tree (treesit-induce-sparse-tree
                     node "lexical_declaration" nil 1000)))
     `(("Class" . ,(js--treesit-imenu-1 class-tree))
-      ("Varieable" . ,(js--treesit-imenu-1 var-tree))
+      ("Variable" . ,(js--treesit-imenu-1 var-tree))
       ("Function" . ,(js--treesit-imenu-1 func-tree)))))
 
 ;;; Main Function
@@ -3848,11 +3851,15 @@ Currently there are `js-mode' and `js-ts-mode'."
     (setq-local which-func-imenu-joiner-function #'js--which-func-joiner)
     ;; Comment.
     (setq-local comment-start "// ")
-    (setq-local comment-start-skip "\\(?://+\\|/\\*+\\)\\s *")
     (setq-local comment-end "")
+    (setq-local comment-start-skip (rx (or (seq "/" (+ "/"))
+                                           (seq "/" (+ "*")))
+                                       (* (syntax whitespace))))
+    (setq-local comment-end-skip
+                (rx (* (syntax whitespace))
+                    (group (or (syntax comment-end)
+                               (seq (+ "*") "/")))))
     (setq-local comment-multi-line t)
-    (setq-local treesit-comment-start (rx "/" (or (+ "/") (+ "*"))))
-    (setq-local treesit-comment-end (rx (+ (or "*")) "/"))
     ;; Electric-indent.
     (setq-local electric-indent-chars
 	        (append "{}():;," electric-indent-chars)) ;FIXME: js2-mode adds "[]*".
@@ -3873,9 +3880,10 @@ Currently there are `js-mode' and `js-ts-mode'."
     (setq-local treesit-font-lock-settings js--treesit-font-lock-settings)
     (setq-local treesit-font-lock-feature-list
                 '(( comment declaration)
-                  ( constant expression identifier keyword number string)
-                  ( bracket delimiter escape-sequence jsx operator
-                    pattern property)))
+                  ( keyword string)
+                  ( constant escape-sequence expression
+                    identifier jsx number pattern property)
+                  ( bracket delimiter operator)))
     ;; Imenu
     (setq-local imenu-create-index-function
                 #'js--treesit-imenu)

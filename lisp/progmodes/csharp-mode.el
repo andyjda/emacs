@@ -3,24 +3,30 @@
 ;; Copyright (C) 2022  Free Software Foundation, Inc.
 
 ;; Author     : Theodor Thornhill <theo@thornhill.no>
+;;              Jostein Kjønigsen <jostein@kjonigsen.net>
 ;; Maintainer : Theodor Thornhill <theo@thornhill.no>
+;;              Jostein Kjønigsen <jostein@kjonigsen.net>
 ;; Created    : September 2022
 ;; Keywords   : c# languages oop
 
 ;; This file is part of GNU Emacs.
 
-;; This program is free software; you can redistribute it and/or modify
+;; GNU Emacs is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation, either version 3 of the License, or
 ;; (at your option) any later version.
 
-;; This program is distributed in the hope that it will be useful,
+;; GNU Emacs is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
+;; along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.
+
+;;; Commentary:
+
+;; Support for editing C#.
 
 ;;; Code:
 
@@ -30,7 +36,8 @@
 (require 'treesit)
 
 (eval-when-compile
-  (require 'cc-fonts))
+  (require 'cc-fonts)
+  (require 'rx))
 
 (declare-function treesit-parser-create "treesit.c")
 (declare-function treesit-induce-sparse-tree "treesit.c")
@@ -44,7 +51,7 @@
 (eval-and-compile
   (defconst csharp--regex-identifier
     "[A-Za-z][A-Za-z0-9_]*"
-    "Regex describing an dentifier in C#.")
+    "Regex describing an identifier in C#.")
 
   (defconst csharp--regex-identifier-matcher
     (concat "\\(" csharp--regex-identifier "\\)")
@@ -313,12 +320,7 @@
 (c-lang-defconst c-basic-matchers-before
   csharp `(
            ;; Warning face on unclosed strings
-           ,@(if (version< emacs-version "27.0")
-                 ;; Taken from 26.1 branch
-                 `(,(c-make-font-lock-search-function
-                     (concat ".\\(" c-string-limit-regexp "\\)")
-                     '((c-font-lock-invalid-string))))
-               `(("\\s|" 0 font-lock-warning-face t nil)))
+           ("\\s|" 0 font-lock-warning-face t nil)
 
            ;; Invalid single quotes
            c-font-lock-invalid-single-quotes
@@ -339,7 +341,6 @@
                 `((csharp--color-forwards font-lock-variable-name-face)
                   nil
                   (goto-char (match-end 0)))))
-
 
            ;; Negation character
            (eval . (list "\\(!\\)[^=]" 1 c-negation-char-face-name))
@@ -369,8 +370,7 @@
            (eval . (list (concat "\\<catch\\> *( *"
                                  csharp--regex-type-name-matcher
                                  " *) *")
-                         1 font-lock-type-face))
-           ))
+                         1 font-lock-type-face))))
 
 (c-lang-defconst c-basic-matchers-after
   csharp (append
@@ -482,7 +482,7 @@ compilation and evaluation time conflicts."
      (save-excursion
        ;; 'new' should be part of the line
        (goto-char (c-point 'iopl))
-       (looking-at ".*\\s *new\\s *.*"))
+       (looking-at ".*new.*"))
      ;; Line should not already be terminated
      (save-excursion
        (goto-char (c-point 'eopl))
@@ -499,77 +499,13 @@ compilation and evaluation time conflicts."
 
 ;;; End of new syntax constructs
 
-
-
-;;; Fix for strings on version 27.1
-
-(when (version= emacs-version "27.1")
-  ;; See:
-  ;; https://github.com/emacs-csharp/csharp-mode/issues/175
-  ;; https://github.com/emacs-csharp/csharp-mode/issues/151
-  ;; for the full story.
-  (defun c-pps-to-string-delim (end)
-    (let* ((start (point))
-           (no-st-s `(0 nil nil ?\" nil nil 0 nil ,start nil nil))
-           (st-s `(0 nil nil t nil nil 0 nil ,start nil nil))
-           no-st-pos st-pos
-           )
-      (parse-partial-sexp start end nil nil no-st-s 'syntax-table)
-      (setq no-st-pos (point))
-      (goto-char start)
-      (while (progn
-               (parse-partial-sexp (point) end nil nil st-s 'syntax-table)
-               (unless (bobp)
-                 (c-clear-syn-tab (1- (point))))
-               (setq st-pos (point))
-               (and (< (point) end)
-                    (not (eq (char-before) ?\")))))
-      (goto-char (min no-st-pos st-pos))
-      nil))
-
-  (defun c-multiline-string-check-final-quote ()
-    (let (pos-ll pos-lt)
-      (save-excursion
-        (goto-char (point-max))
-        (skip-chars-backward "^\"")
-        (while
-            (and
-             (not (bobp))
-             (cond
-              ((progn
-                 (setq pos-ll (c-literal-limits)
-                       pos-lt (c-literal-type pos-ll))
-                 (memq pos-lt '(c c++)))
-               ;; In a comment.
-               (goto-char (car pos-ll)))
-              ((save-excursion
-                 (backward-char)        ; over "
-                 (c-is-escaped (point)))
-               ;; At an escaped string.
-               (backward-char)
-               t)
-              (t
-               ;; At a significant "
-               (c-clear-syn-tab (1- (point)))
-               (setq pos-ll (c-literal-limits)
-                     pos-lt (c-literal-type pos-ll))
-               nil)))
-          (skip-chars-backward "^\""))
-        (cond
-         ((bobp))
-         ((eq pos-lt 'string)
-          (c-put-syn-tab (1- (point)) '(15)))
-         (t nil))))))
-
-;;; End of fix for strings on version 27.1
-
 ;; When invoked by MSBuild, csc’s errors look like this:
 ;; subfolder\file.cs(6,18): error CS1006: Name of constructor must
 ;; match name of class [c:\Users\user\project.csproj]
 
 (defun csharp--compilation-error-file-resolve ()
   "Resolve an msbuild error to a (filename . dirname) cons cell."
-  ;; http://stackoverflow.com/a/18049590/429091
+  ;; https://stackoverflow.com/a/18049590/429091
   (cons (match-string 1) (file-name-directory (match-string 4))))
 
 (defconst csharp-compilation-re-msbuild-error
@@ -614,7 +550,7 @@ compilation and evaluation time conflicts."
    "\\([^(\r\n)]+\\)(\\([0-9]+\\)\\(?:,\\([0-9]+\\)\\)?"
    ;; handle weird devenv output format with 4 numbers, not 2 by having optional
    ;; extra capture-groups.
-   "\\(?:,\\([0-9]+\\)\\)?*): "
+   "\\(?:,\\([0-9]+\\)\\)*): "
    "warning [[:alnum:]]+: .+$")
   "Regexp to match compilation warning from xbuild.")
 
@@ -806,12 +742,17 @@ compilation and evaluation time conflicts."
      (cast_expression (identifier) @font-lock-type-face)
      ["operator"] @font-lock-type-face
      (type_parameter_constraints_clause
-      target: (identifier) @font-lock-type-face))
+      target: (identifier) @font-lock-type-face)
+     (type_of_expression (identifier) @font-lock-type-face)
+     (object_creation_expression (identifier) @font-lock-type-face))
    :language 'c-sharp
    :feature 'definition
    :override t
-   '((qualified_name (identifier) @font-lock-variable-name-face)
+   '((qualified_name (identifier) @font-lock-type-face)
      (using_directive (identifier) @font-lock-type-face)
+     (using_directive (name_equals
+                       (identifier) @font-lock-type-face
+                       ["="] @default-face))
 
      (enum_declaration (identifier) @font-lock-type-face)
      (enum_member_declaration (identifier) @font-lock-variable-name-face)
@@ -840,11 +781,32 @@ compilation and evaluation time conflicts."
      (method_declaration type: (_) @font-lock-type-face)
      (method_declaration name: (_) @font-lock-function-name-face)
 
+     (invocation_expression
+      (member_access_expression
+       (generic_name (identifier) @font-lock-function-name-face)))
+     (invocation_expression
+      (member_access_expression
+       ((identifier) @font-lock-variable-name-face
+        (identifier) @font-lock-function-name-face)))
+     (invocation_expression
+      (identifier) @font-lock-function-name-face)
+     (invocation_expression
+      (member_access_expression (identifier) @font-lock-function-name-face))
+
+     (catch_declaration
+      ((identifier) @font-lock-type-face))
+     (catch_declaration
+      ((identifier) @font-lock-type-face
+       (identifier) @font-lock-variable-name-face))
+
      (variable_declaration (identifier) @font-lock-type-face)
      (variable_declarator (identifier) @font-lock-variable-name-face)
 
      (parameter type: (identifier) @font-lock-type-face)
-     (parameter name: (identifier) @font-lock-variable-name-face))
+     (parameter name: (identifier) @font-lock-variable-name-face)
+
+     (binary_expression (identifier) @font-lock-variable-name-face)
+     (argument (identifier) @font-lock-variable-name-face))
    :language 'c-sharp
    :feature 'expression
    '((conditional_expression (identifier) @font-lock-variable-name-face)
@@ -856,7 +818,13 @@ compilation and evaluation time conflicts."
 
    :language 'c-sharp
    :feature 'delimiter
-   '((["," ":" ";"]) @font-lock-delimiter-face)))
+   '((["," ":" ";"]) @font-lock-delimiter-face)
+
+   :language 'c-sharp
+   :feature 'escape-sequence
+   :override t
+   '((escape_sequence) @font-lock-escape-face
+     (ERROR) @font-lock-warning-face)))
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.cs\\'" . csharp-mode))
@@ -931,6 +899,7 @@ Key bindings:
 ;;;###autoload
 (define-derived-mode csharp-ts-mode prog-mode "C#"
   "Major mode for editing C# code."
+  :syntax-table (csharp--make-mode-syntax-table)
 
   (unless (treesit-ready-p 'c-sharp)
     (error "Tree-sitter for C# isn't available"))
@@ -940,8 +909,14 @@ Key bindings:
 
   ;; Comments.
   (setq-local comment-start "// ")
-  (setq-local comment-start-skip "\\(?://+\\|/\\*+\\)\\s *")
   (setq-local comment-end "")
+  (setq-local comment-start-skip (rx (or (seq "/" (+ "/"))
+                                         (seq "/" (+ "*")))
+                                     (* (syntax whitespace))))
+  (setq-local comment-end-skip
+              (rx (* (syntax whitespace))
+                  (group (or (syntax comment-end)
+                             (seq (+ "*") "/")))))
 
   ;; Indent.
   (setq-local treesit-simple-indent-rules csharp-ts-mode--indent-rules)
@@ -956,9 +931,10 @@ Key bindings:
   ;; Font-lock.
   (setq-local treesit-font-lock-settings csharp-ts-mode--font-lock-settings)
   (setq-local treesit-font-lock-feature-list
-              '((comment keyword constant string)
-                (type definition expression literal attribute)
-                (bracket delimiter)))
+              '(( comment definition)
+                ( keyword string escape-sequence type)
+                ( attribute constant expression literal)
+                ( bracket delimiter)))
 
   ;; Imenu.
   (setq-local imenu-create-index-function #'csharp-ts-mode--imenu)

@@ -279,7 +279,7 @@
 (declare-function treesit-node-start "treesit.c")
 (declare-function treesit-node-end "treesit.c")
 (declare-function treesit-node-parent "treesit.c")
-
+(declare-function treesit-node-prev-sibling "treesit.c")
 
 (autoload 'comint-mode "comint")
 (autoload 'help-function-arglist "help-fns")
@@ -454,7 +454,7 @@ This variant of `rx' supports common Python named REGEXPS."
             (close-paren       (or "}" "]" ")"))
             (simple-operator   (any ?+ ?- ?/ ?& ?^ ?~ ?| ?* ?< ?> ?= ?%))
             (not-simple-operator (not (or simple-operator ?\n)))
-            (operator          (or "==" ">=" "is" "not"
+            (operator          (or "==" ">="
                                    "**" "//" "<<" ">>" "<=" "!="
                                    "+" "-" "/" "&" "^" "~" "|" "*" "<" ">"
                                    "=" "%"))
@@ -791,6 +791,7 @@ sign in chained assignment."
                    (? (or ")" "]") (* sp-bsnl))
                    (group assignment-operator)))
      (1 font-lock-variable-name-face)
+     (2 'font-lock-operator-face)
      (,(python-rx grouped-assignment-target)
       (progn
         (goto-char (match-end 1))       ; go back after the first symbol
@@ -806,8 +807,9 @@ sign in chained assignment."
        (python-rx (or line-start ?\;) (* sp-bsnl)
                   grouped-assignment-target (* sp-bsnl)
                   (? ?: (* sp-bsnl) (+ not-simple-operator) (* sp-bsnl))
-                  assignment-operator))
-     (1 font-lock-variable-name-face))
+                  (group assignment-operator)))
+     (1 font-lock-variable-name-face)
+     (2 'font-lock-operator-face))
     ;; special cases
     ;;   (a) = 5
     ;;   [a] = 5,
@@ -817,8 +819,11 @@ sign in chained assignment."
                   (or "[" "(") (* sp-nl)
                   grouped-assignment-target (* sp-nl)
                   (or ")" "]") (* sp-bsnl)
-                  assignment-operator))
-     (1 font-lock-variable-name-face))
+                  (group assignment-operator)))
+     (1 font-lock-variable-name-face)
+     (2 'font-lock-operator-face))
+    ;; Operators.
+    (,(python-rx operator) . 'font-lock-operator-face)
     ;; escape sequences within bytes literals
     ;;   "\\" "\'" "\a" "\b" "\f" "\n" "\r" "\t" "\v"
     ;;   "\ooo" character with octal value ooo
@@ -962,9 +967,9 @@ It makes underscores and dots word constituent chars.")
 ;; merge with `python-font-lock-keywords-level-2'.
 
 (defvar python--treesit-keywords
-  '("as" "assert" "async" "await" "break" "class" "continue" "def"
+  '("as" "assert" "async" "await" "break" "case" "class" "continue" "def"
     "del" "elif" "else" "except" "exec" "finally" "for" "from"
-    "global" "if" "import" "lambda" "nonlocal" "pass" "print"
+    "global" "if" "import" "lambda" "match" "nonlocal" "pass" "print"
     "raise" "return" "try" "while" "with" "yield"
     ;; These are technically operators, but we fontify them as
     ;; keywords.
@@ -988,7 +993,7 @@ It makes underscores and dots word constituent chars.")
 
 (defvar python--treesit-operators
   '("-" "-=" "!=" "*" "**" "**=" "*=" "/" "//" "//=" "/=" "&" "%" "%="
-    "^" "+" "+=" "<" "<<" "<=" "<>" "=" "==" ">" ">=" ">>" "|" "~"))
+    "^" "+" "+=" "<" "<<" "<=" "<>" "=" "==" ">" ">=" ">>" "|" "~" "@" "@="))
 
 (defvar python--treesit-special-attributes
   '("__annotations__" "__closure__" "__code__"
@@ -1033,12 +1038,27 @@ fontified."
   (let* ((string-beg (treesit-node-start node))
          (string-end (treesit-node-end node))
          (maybe-expression (treesit-node-parent node))
-         (maybe-defun (treesit-node-parent
+         (grandparent (treesit-node-parent
                        (treesit-node-parent
                         maybe-expression)))
-         (face (if (and (member (treesit-node-type maybe-defun)
-                                '("function_definition"
-                                  "class_definition"))
+         (maybe-defun grandparent)
+         (face (if (and (or (member (treesit-node-type maybe-defun)
+                                    '("function_definition"
+                                      "class_definition"))
+                            ;; If the grandparent is null, meaning the
+                            ;; string is top-level, and the string has
+                            ;; no node or only comment preceding it,
+                            ;; it's a BOF docstring.
+                            (and (null grandparent)
+                                 (cl-loop
+                                  for prev = (treesit-node-prev-sibling
+                                              maybe-expression)
+                                  then (treesit-node-prev-sibling prev)
+                                  while prev
+                                  if (not (equal (treesit-node-type prev)
+                                                 "comment"))
+                                  return nil
+                                  finally return t)))
                         ;; This check filters out this case:
                         ;; def function():
                         ;;     return "some string"
@@ -1049,7 +1069,7 @@ fontified."
     (when (eq (char-after string-beg) ?f)
       (cl-incf string-beg))
     (treesit-fontify-with-override
-     (max start string-beg) (min end string-end) face override)))
+     string-beg string-end face override start end)))
 
 (defvar python--treesit-settings
   (treesit-font-lock-rules
@@ -6569,9 +6589,6 @@ implementations: `python-mode' and `python-ts-mode'."
 
   (make-local-variable 'python-shell-internal-buffer)
 
-  (when python-indent-guess-indent-offset
-    (python-indent-guess-indent-offset))
-
   (add-hook 'flymake-diagnostic-functions #'python-flymake nil t))
 
 ;;;###autoload
@@ -6583,12 +6600,18 @@ implementations: `python-mode' and `python-ts-mode'."
               `(,python-font-lock-keywords
                 nil nil nil nil
                 (font-lock-syntactic-face-function
-                 . python-font-lock-syntactic-face-function)))
+                 . python-font-lock-syntactic-face-function)
+                (font-lock-extend-after-change-region-function
+                 . python-font-lock-extend-region)))
   (setq-local syntax-propertize-function
               python-syntax-propertize-function)
   (setq-local imenu-create-index-function
               #'python-imenu-create-index)
-  (add-hook 'which-func-functions #'python-info-current-defun nil t))
+
+  (add-hook 'which-func-functions #'python-info-current-defun nil t)
+
+  (when python-indent-guess-indent-offset
+    (python-indent-guess-indent-offset)))
 
 ;;;###autoload
 (define-derived-mode python-ts-mode python-base-mode "Python"
@@ -6598,17 +6621,20 @@ implementations: `python-mode' and `python-ts-mode'."
   (when (treesit-ready-p 'python)
     (treesit-parser-create 'python)
     (setq-local treesit-font-lock-feature-list
-                '(( comment string definition)
-                  ( keyword builtin constant type)
-                  ( assignment decorator escape-sequence
-                    string-interpolation number property
-                    operator bracket delimiter)))
+                '(( comment definition)
+                  ( keyword string type)
+                  ( assignment builtin constant decorator
+                    escape-sequence number property string-interpolation )
+                  ( bracket delimiter operator)))
     (setq-local treesit-font-lock-settings python--treesit-settings)
     (setq-local imenu-create-index-function
                 #'python-imenu-treesit-create-index)
     (setq-local treesit-defun-type-regexp (rx (or "function" "class")
                                               "_definition"))
-    (treesit-major-mode-setup)))
+    (treesit-major-mode-setup)
+
+  (when python-indent-guess-indent-offset
+    (python-indent-guess-indent-offset))))
 
 ;;; Completion predicates for M-x
 ;; Commands that only make sense when editing Python code

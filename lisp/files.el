@@ -2308,7 +2308,8 @@ it returns nil or exits non-locally."
   "Warn if an attempt to open file of SIZE bytes may run out of memory."
   (when (and (numberp size) (not (zerop size))
 	     (integerp out-of-memory-warning-percentage))
-    (let ((meminfo (memory-info)))
+    (let* ((default-directory temporary-file-directory)
+           (meminfo (memory-info)))
       (when (consp meminfo)
 	(let ((total-free-memory (float (+ (nth 1 meminfo) (nth 3 meminfo)))))
 	  (when (> (/ size 1024)
@@ -7440,7 +7441,7 @@ The \"sibling\" file is defined by the `find-sibling-rules' variable."
                           relatives nil t nil nil (car relatives))))))))
 
 (defun find-sibling-file-search (file &optional rules)
-  "Return a list of FILE's \"siblings\"
+  "Return a list of FILE's \"siblings\".
 RULES should be a list on the form defined by `find-sibling-rules' (which
 see), and if nil, defaults to `find-sibling-rules'."
   (let ((results nil))
