@@ -60,6 +60,14 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 @end
 @implementation XwWebView : WKWebView
 
+- (void)dealloc
+{
+  [WKWebViewConfiguration release];
+  [WKUserContentController release];
+  [NSMutableDictionary release];
+  [super dealloc];
+}
+
 - (id)initWithFrame:(CGRect)frame
       configuration:(WKWebViewConfiguration *)configuration
             xwidget:(struct xwidget *)xw
@@ -485,43 +493,12 @@ nsxwidget_init(struct xwidget *xw)
   unblock_input ();
 }
 
-// void
-// nsxwidget_kill (struct xwidget *xw)
-// {
-//   if (xw)
-//     {
-//       printf("\nin nsxwidget_kill");
-//       WKUserContentController *scriptor =
-//         ((XwWebView *) xw->xwWidget).configuration.userContentController;
-//       [scriptor removeAllUserScripts];
-//       [scriptor removeScriptMessageHandlerForName:@"keyDown"];
-//       [scriptor release];
-//       if (xw->xv)
-//         xw->xv->model = Qnil; /* Make sure related view stale.  */
-
-//       /* This stops playing audio when a xwidget-webkit buffer is
-//          killed.  I could not find other solution.
-//          TODO: improve this*/
-//       nsxwidget_webkit_goto_uri (xw, "about:blank");
-
-//       [((XwWebView *) xw->xwWidget).configuration release];
-
-//       [((XwWebView *) xw->xwWidget).urlScriptBlocked release];
-//       [xw->xwWidget removeFromSuperviewWithoutNeedingDisplay];
-//       [xw->xwWidget release];
-//       [xw->xwWindow removeFromSuperviewWithoutNeedingDisplay];
-//       [xw->xwWindow release];
-//       xw->xwWidget = nil; // what's the point of this? didn't we just release it?
-//       // [xw release];
-//       // printf("\nkilled everything?");
-//     }
-// }
-
 void
 nsxwidget_kill (struct xwidget *xw)
 {
   if (xw)
     {
+      printf("\nin nsxwidget_kill");
       WKUserContentController *scriptor =
         ((XwWebView *) xw->xwWidget).configuration.userContentController;
       [scriptor removeAllUserScripts];
@@ -531,8 +508,12 @@ nsxwidget_kill (struct xwidget *xw)
         xw->xv->model = Qnil; /* Make sure related view stale.  */
 
       /* This stops playing audio when a xwidget-webkit buffer is
-         killed.  I could not find other solution.  */
+         killed.  I could not find other solution.
+         TODO: improve this */
       nsxwidget_webkit_goto_uri (xw, "about:blank");
+
+      // is this part needed?
+      [((XwWebView *) xw->xwWidget).configuration release];
 
       [((XwWebView *) xw->xwWidget).urlScriptBlocked release];
       [xw->xwWidget removeFromSuperviewWithoutNeedingDisplay];
@@ -540,6 +521,7 @@ nsxwidget_kill (struct xwidget *xw)
       [xw->xwWindow removeFromSuperviewWithoutNeedingDisplay];
       [xw->xwWindow release];
       xw->xwWidget = nil;
+      printf("\nkilled everything?");
     }
 }
 

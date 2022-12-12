@@ -513,8 +513,6 @@ If non-nil, plugins are enabled.  Otherwise, disabled."
     :type 'boolean
     :version "28.1"))
 
-(setq-local current-widget nil)
-
 (define-derived-mode xwidget-webkit-mode special-mode "xwidget-webkit"
   "Xwidget webkit view mode."
   (setq buffer-read-only t)
@@ -911,7 +909,6 @@ see `xwidget-webkit-callback'."
       (xwidget-put xw 'callback callback)
       (xwidget-put xw 'display-callback #'xwidget-webkit-display-callback)
       (xwidget-webkit-mode))
-    (setq-local current-widget xw)
     xwidget-webkit-last-session-buffer))
 
 (defun xwidget-webkit-new-session (url)
