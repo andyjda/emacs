@@ -512,8 +512,10 @@ nsxwidget_kill (struct xwidget *xw)
          TODO: improve this */
       nsxwidget_webkit_goto_uri (xw, "about:blank");
 
-      // is this part needed?
-      [((XwWebView *) xw->xwWidget).configuration release];
+      // not sure if this part needed is needed or if it actually
+      // causes a seg fault.
+      // looks like we're better off without it: no seg fault
+      // [((XwWebView *) xw->xwWidget).configuration release];
 
       [((XwWebView *) xw->xwWidget).urlScriptBlocked release];
       [xw->xwWidget removeFromSuperviewWithoutNeedingDisplay];
