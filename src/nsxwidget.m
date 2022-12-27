@@ -507,7 +507,7 @@ nsxwidget_kill (struct xwidget *xw)
         ((XwWebView *) xw->xwWidget).configuration.userContentController;
       [scriptor removeAllUserScripts];
       [scriptor removeScriptMessageHandlerForName:@"keyDown"];
-       // TODO: testing out if the autorelease is actually taking care of these releases,
+       //the autorelease is actually taking care of these releases,
       // and this release is no longer necessary
       // [scriptor release];
       if (xw->xv)
