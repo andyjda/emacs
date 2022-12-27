@@ -62,9 +62,9 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 
 - (void)dealloc
 {
-  [WKWebViewConfiguration release];
-  [WKUserContentController release];
-  [NSMutableDictionary release];
+  // [WKWebViewConfiguration release];
+  // [WKUserContentController release];
+  // [NSMutableDictionary release];
   [super dealloc];
 }
 
@@ -73,7 +73,8 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
             xwidget:(struct xwidget *)xw
 {
   /* Script controller to add script message handler and user script.  */
-  WKUserContentController *scriptor = [[WKUserContentController alloc] init];
+  WKUserContentController *scriptor = [[[WKUserContentController alloc] init]
+                                       autorelease];
   configuration.userContentController = scriptor;
 
   /* Enable inspect element context menu item for debugging.  */
@@ -92,7 +93,8 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
   if (self)
     {
       self.xw = xw;
-      self.urlScriptBlocked = [[NSMutableDictionary alloc] init];
+      self.urlScriptBlocked = [[[NSMutableDictionary alloc] init]
+                               autorelease];
       self.navigationDelegate = self;
       self.UIDelegate = self;
       self.customUserAgent =
@@ -100,6 +102,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
         @" AppleWebKit/603.3.8 (KHTML, like Gecko)"
         @" Version/11.0.1 Safari/603.3.8";
       [scriptor addScriptMessageHandler:self name:@"keyDown"];
+      // TODO: try an autorelease here
       [scriptor addUserScript:[[WKUserScript alloc]
                                 initWithSource:xwScript
                                  injectionTime:
@@ -484,10 +487,11 @@ nsxwidget_init(struct xwidget *xw)
   NSRect rect = NSMakeRect (0, 0, xw->width, xw->height);
   xw->xwWidget = [[XwWebView alloc]
                    initWithFrame:rect
-                   configuration:[[WKWebViewConfiguration alloc] init]
+                   configuration:[[[WKWebViewConfiguration alloc] init]
+                                   autorelease]
                          xwidget:xw];
   xw->xwWindow = [[XwWindow alloc]
-                   initWithFrame:rect];
+                   initWithFrame:rect]; // TODO should there be autoreleases for these inits?
   [xw->xwWindow addSubview:xw->xwWidget];
   xw->xv = NULL; /* for 1 to 1 relationship of webkit2.  */
   unblock_input ();
@@ -503,7 +507,9 @@ nsxwidget_kill (struct xwidget *xw)
         ((XwWebView *) xw->xwWidget).configuration.userContentController;
       [scriptor removeAllUserScripts];
       [scriptor removeScriptMessageHandlerForName:@"keyDown"];
-      [scriptor release];
+       // TODO: testing out if the autorelease is actually taking care of these releases,
+      // and this release is no longer necessary
+      // [scriptor release];
       if (xw->xv)
         xw->xv->model = Qnil; /* Make sure related view stale.  */
 
@@ -517,8 +523,10 @@ nsxwidget_kill (struct xwidget *xw)
       // looks like we're better off without it: no seg fault
       // [((XwWebView *) xw->xwWidget).configuration release];
 
+      // TODO: remove this if you're going to do an autorelease for this
       [((XwWebView *) xw->xwWidget).urlScriptBlocked release];
       [xw->xwWidget removeFromSuperviewWithoutNeedingDisplay];
+      // TODO: try autorelease for these instead?
       [xw->xwWidget release];
       [xw->xwWindow removeFromSuperviewWithoutNeedingDisplay];
       [xw->xwWindow release];
