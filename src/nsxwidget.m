@@ -74,7 +74,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 {
   /* Script controller to add script message handler and user script.  */
   WKUserContentController *scriptor = [[[WKUserContentController alloc] init]
-                                       autorelease];
+                                        autorelease];
   configuration.userContentController = scriptor;
 
   /* Enable inspect element context menu item for debugging.  */
@@ -94,7 +94,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
     {
       self.xw = xw;
       self.urlScriptBlocked = [[[NSMutableDictionary alloc] init]
-                               autorelease];
+                                autorelease];
       self.navigationDelegate = self;
       self.UIDelegate = self;
       self.customUserAgent =
@@ -102,12 +102,14 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
         @" AppleWebKit/603.3.8 (KHTML, like Gecko)"
         @" Version/11.0.1 Safari/603.3.8";
       [scriptor addScriptMessageHandler:self name:@"keyDown"];
-      // TODO: try an autorelease here
-      [scriptor addUserScript:[[WKUserScript alloc]
-                                initWithSource:xwScript
-                                 injectionTime:
-                                  WKUserScriptInjectionTimeAtDocumentStart
-                                forMainFrameOnly:NO]];
+      // TODO: maybe try an autorelease here?
+      WKUserScript *userScript = [[[WKUserScript alloc]
+                                    initWithSource:xwScript
+                                     injectionTime:
+                                      WKUserScriptInjectionTimeAtDocumentStart
+                                    forMainFrameOnly:NO]
+                                   autorelease];
+      [scriptor addUserScript:userScript];
     }
   return self;
 }
@@ -507,7 +509,7 @@ nsxwidget_kill (struct xwidget *xw)
         ((XwWebView *) xw->xwWidget).configuration.userContentController;
       [scriptor removeAllUserScripts];
       [scriptor removeScriptMessageHandlerForName:@"keyDown"];
-       //the autorelease is actually taking care of these releases,
+       // the autorelease is actually taking care of these releases,
       // and this release is no longer necessary
       // [scriptor release];
       if (xw->xv)
