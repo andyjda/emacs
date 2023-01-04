@@ -2266,6 +2266,9 @@ void
 store_xwidget_event_string (struct xwidget *xw, const char *eventname,
                             const char *eventstr)
 {
+  printf("in store_xwidget_event_string");
+  printf("eventname: %s", eventname);
+  printf("eventstr: %s", eventstr);
   struct input_event event;
   Lisp_Object xwl;
   XSETXWIDGET (xwl, xw);
@@ -3074,26 +3077,24 @@ is to completely loading its page.  */)
   (Lisp_Object xwidget)
 {
   struct xwidget *xw;
-  /* WebKitWebView *webview; */
+#ifdef USE_GTK
+  WebKitWebView *webview;
+#endif
   double value;
 
-  printf("\n\nin xwidget_webkit_estimated_load_progress");
   CHECK_LIVE_XWIDGET (xwidget);
-  printf("\nchecked LIVE_XWIDGET");
   xw = XXWIDGET (xwidget);
-  printf("\ngot the xwidget");
   CHECK_WEBKIT_WIDGET (xw);
-  printf("\nchecked WEBKIT_WIDGET");
 
   block_input ();
-  printf("\nblocked the input");
-  /* webview = WEBKIT_WEB_VIEW (xw->widget_osr); */
-  /* printf("\ngot webview"); */
+#ifdef USE_GTK
+  webview = WEBKIT_WEB_VIEW (xw->widget_osr);
+  value = webkit_web_view_get_estimated_load_progress (webview);
+#elif defined NS_IMPL_COCOA
   value = nsxwidget_webkit_estimated_load_progress (xw);
-  printf("\ngot the value: %f", value);
+#endif
+
   unblock_input ();
-  printf("\nunblocked the input");
-  printf("\nreturning make_float(value) with value: %f", value);
 
   return make_float (value);
 }

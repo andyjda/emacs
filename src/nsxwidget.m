@@ -114,11 +114,39 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
   return self;
 }
 
+// new thing: we are implementing the load events
+// TODO: wehen is this method actually used?
+// it seems it's used at some point by WKNavigationDelegate
 - (void)webView:(WKWebView *)webView
 didFinishNavigation:(WKNavigation *)navigation
 {
+  printf("\nin didFinishNavigation");
   if (EQ (Fbuffer_live_p (self.xw->buffer), Qt))
-    store_xwidget_event_string (self.xw, "load-changed", "");
+    store_xwidget_event_string (self.xw, "load-changed", "load-finished");
+}
+
+- (void)webView:(WKWebView *)webView didStartProvisionalNavigation:(WKNavigation *)navigation
+{
+  printf("\nin didStartProvisionalNavigation");
+  if (EQ (Fbuffer_live_p (self.xw->buffer), Qt))
+    store_xwidget_event_string (self.xw, "load-changed", "load-started");
+}
+
+- (void)webView:(WKWebView *)webView
+didReceiveServerRedirectForProvisionalNavigation:(WKNavigation *)navigation
+{
+  printf("\nin didReceiveServerRedirectForProvisionalNavigation");
+  if (EQ (Fbuffer_live_p (self.xw->buffer), Qt))
+    store_xwidget_event_string (self.xw, "load-changed", "load-redirected");
+}
+
+// TODO: test this out
+// Start loading WKWebView
+- (void)webView:(WKWebView *)webView didCommitNavigation:(WKNavigation *)navigation
+{
+  printf("\nin didCommitNavigation");
+  if (EQ (Fbuffer_live_p (self.xw->buffer), Qt)) // what exactly is this test for
+    store_xwidget_event_string (self.xw, "load-changed", "load-committed");
 }
 
 - (void)webView:(WKWebView *)webView
@@ -364,6 +392,9 @@ double
 nsxwidget_webkit_estimated_load_progress(struct xwidget *xw)
 {
   printf("\nin nsxwidget_webkit_estimated_load_progress");
+  bool loading_p = nsxwidget_webkit_is_loading(xw);
+  printf("\nis xwidget loading?");
+  printf("%s\n", loading_p ? "true" : "false");
   XwWebView *xwWebView = (XwWebView *) xw->xwWidget;
   printf("\ngot the xwWebView");
   printf("\nreturning the esimated progress as Double");
