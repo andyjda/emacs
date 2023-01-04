@@ -1,6 +1,6 @@
 ;;; flymake.el --- A universal on-the-fly syntax checker  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2003-2022 Free Software Foundation, Inc.
+;; Copyright (C) 2003-2023 Free Software Foundation, Inc.
 
 ;; Author: Pavel Kobyakov <pk_at_work@yahoo.com>
 ;; Maintainer: João Távora <joaotavora@gmail.com>
@@ -1635,6 +1635,7 @@ buffer."
 (define-derived-mode flymake-diagnostics-buffer-mode tabulated-list-mode
   "Flymake diagnostics"
   "A mode for listing Flymake diagnostics."
+  :interactive nil
   (setq tabulated-list-format flymake--diagnostics-base-tabulated-list-format)
   (setq tabulated-list-entries
         'flymake--diagnostics-buffer-entries)
@@ -1692,6 +1693,7 @@ some of this variable's contents the diagnostic listings.")
 (define-derived-mode flymake-project-diagnostics-mode tabulated-list-mode
   "Flymake diagnostics"
   "A mode for listing Flymake diagnostics."
+  :interactive nil
   (setq tabulated-list-format
         (vconcat [("File" 25 t)]
                  flymake--diagnostics-base-tabulated-list-format))

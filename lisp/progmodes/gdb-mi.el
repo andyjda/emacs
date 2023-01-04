@@ -1,6 +1,6 @@
 ;;; gdb-mi.el --- User Interface for running GDB  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2007-2022 Free Software Foundation, Inc.
+;; Copyright (C) 2007-2023 Free Software Foundation, Inc.
 
 ;; Author: Nick Roberts <nickrob@gnu.org>
 ;; Maintainer: emacs-devel@gnu.org
@@ -4368,7 +4368,7 @@ of 0 means there is no limit.
 
 Additionally, the order the element in the alist determines the
 left-to-right display order of the properties."
-  :type '(alist :key-type 'symbol :value-type 'integer)
+  :type '(alist :key-type symbol :value-type integer)
   :group 'gud
   :version "30.1")
 

@@ -1,6 +1,6 @@
 /* xfaces.c -- "Face" primitives.
 
-Copyright (C) 1993-1994, 1998-2022 Free Software Foundation, Inc.
+Copyright (C) 1993-1994, 1998-2023 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -6018,12 +6018,12 @@ realize_non_ascii_face (struct frame *f, Lisp_Object font_object,
    appears in `font-fallback-ignored-attributes'.  */
 
 static void
-font_unset_attribute (Lisp_Object font_object, enum font_property_index index,
-		      Lisp_Object symbol)
+font_maybe_unset_attribute (Lisp_Object font_object,
+			    enum font_property_index index, Lisp_Object symbol)
 {
-  Lisp_Object tail;
+  Lisp_Object tail = Vface_font_lax_matched_attributes;
 
-  tail = Vfont_fallback_ignored_attributes;
+  eassert (CONSP (tail));
 
   FOR_EACH_TAIL_SAFE (tail)
     {
@@ -6046,7 +6046,7 @@ realize_gui_face (struct face_cache *cache, Lisp_Object attrs[LFACE_VECTOR_SIZE]
 #ifdef HAVE_WINDOW_SYSTEM
   struct face *default_face;
   struct frame *f;
-  Lisp_Object stipple, underline, overline, strike_through, box, spec;
+  Lisp_Object stipple, underline, overline, strike_through, box;
 
   eassert (FRAME_WINDOW_P (cache->f));
 
@@ -6089,33 +6089,44 @@ realize_gui_face (struct face_cache *cache, Lisp_Object attrs[LFACE_VECTOR_SIZE]
 	}
       if (! FONT_OBJECT_P (attrs[LFACE_FONT_INDEX]))
 	{
-	  spec = copy_font_spec (attrs[LFACE_FONT_INDEX]);
+	  Lisp_Object spec = copy_font_spec (attrs[LFACE_FONT_INDEX]);
 
-	  /* Unset several values in SPEC, usually the width, slant,
-	     and weight.  The best possible values for these
-	     attributes is determined in font_find_for_lface, called
-	     by font_load_for_lface, when the candidate list returned
-	     by font_list_entities is sorted by font_select_entity
+	  /* Maybe unset several values in SPEC, usually the width,
+	     slant, and weight.  The best possible values for these
+	     attributes are determined in font_find_for_lface, called
+	     by font_load_for_lface, when the list of candidate fonts
+	     returned by font_list_entities is sorted by font_select_entity
 	     (which calls font_sort_entities, which calls font_score).
 	     If these attributes are not unset here, the candidate
 	     font list returned by font_list_entities only contains
-	     fonts that are exact matches for these weight, slant and
-	     width attributes, which leads to suboptimal or wrong font
-	     choices.  (bug#5934)  */
-	  font_unset_attribute (spec, FONT_WEIGHT_INDEX, QCwidth);
-	  font_unset_attribute (spec, FONT_SLANT_INDEX, QCslant);
-	  font_unset_attribute (spec, FONT_WIDTH_INDEX, QCwidth);
-	  /* Also allow unsetting other attributes for debugging
-	     purposes.  But not FONT_EXTRA_INDEX; that is not safe to
-	     touch in the Haiku font backend.  */
-	  font_unset_attribute (spec, FONT_FAMILY_INDEX, QCfamily);
-	  font_unset_attribute (spec, FONT_FOUNDRY_INDEX, QCfoundry);
-	  font_unset_attribute (spec, FONT_REGISTRY_INDEX, QCregistry);
-	  font_unset_attribute (spec, FONT_ADSTYLE_INDEX, QCadstyle);
-	  font_unset_attribute (spec, FONT_SIZE_INDEX, QCsize);
-	  font_unset_attribute (spec, FONT_DPI_INDEX, QCdpi);
-	  font_unset_attribute (spec, FONT_SPACING_INDEX, QCspacing);
-	  font_unset_attribute (spec, FONT_AVGWIDTH_INDEX, QCavgwidth);
+	     fonts that are exact matches for these weight, slant, and
+	     width attributes, which could lead to suboptimal or wrong
+	     font selection.  (bug#5934) */
+	  if (EQ (Vface_font_lax_matched_attributes, Qt))
+	    {
+	      /* The default case: clear the font attributes that
+		 affect its appearance the least, to try to find some
+		 font that is close, if not exact, match.  */
+	      ASET (spec, FONT_WEIGHT_INDEX, Qnil);
+	      ASET (spec, FONT_SLANT_INDEX, Qnil);
+	      ASET (spec, FONT_WIDTH_INDEX, Qnil);
+	    }
+	  else if (!NILP (Vface_font_lax_matched_attributes))
+	    {
+	      /* Also allow unsetting specific attributes for
+		 debugging purposes.  */
+	      font_maybe_unset_attribute (spec, FONT_WEIGHT_INDEX, QCweight);
+	      font_maybe_unset_attribute (spec, FONT_SLANT_INDEX, QCslant);
+	      font_maybe_unset_attribute (spec, FONT_WIDTH_INDEX, QCwidth);
+	      font_maybe_unset_attribute (spec, FONT_FAMILY_INDEX, QCfamily);
+	      font_maybe_unset_attribute (spec, FONT_FOUNDRY_INDEX, QCfoundry);
+	      font_maybe_unset_attribute (spec, FONT_REGISTRY_INDEX, QCregistry);
+	      font_maybe_unset_attribute (spec, FONT_ADSTYLE_INDEX, QCadstyle);
+	      font_maybe_unset_attribute (spec, FONT_SIZE_INDEX, QCsize);
+	      font_maybe_unset_attribute (spec, FONT_DPI_INDEX, QCdpi);
+	      font_maybe_unset_attribute (spec, FONT_SPACING_INDEX, QCspacing);
+	      font_maybe_unset_attribute (spec, FONT_AVGWIDTH_INDEX, QCavgwidth);
+	    }
 
 	  attrs[LFACE_FONT_INDEX] = font_load_for_lface (f, attrs, spec);
 	}
@@ -7269,7 +7280,7 @@ syms_of_xfaces (void)
   DEFVAR_BOOL ("face-filters-always-match", face_filters_always_match,
     doc: /* Non-nil means that face filters are always deemed to match.
 This variable is intended for use only by code that evaluates
-the "specifity" of a face specification and should be let-bound
+the "specificity" of a face specification and should be let-bound
 only for this purpose.  */);
 
   DEFVAR_LISP ("face--new-frame-defaults", Vface_new_frame_defaults,
@@ -7406,22 +7417,34 @@ Lisp programs that change the value of this variable should also
 clear the face cache, see `clear-face-cache'.  */);
   face_near_same_color_threshold = 30000;
 
-  DEFVAR_LISP ("font-fallback-ignored-attributes",
-	       Vfont_fallback_ignored_attributes,
-	       doc: /* A list of face attributes to ignore.
+  DEFVAR_LISP ("face-font-lax-matched-attributes",
+	       Vface_font_lax_matched_attributes,
+	       doc: /* Whether to match some face attributes in lax manner when realizing faces.
 
-List of font-related face attributes to ignore when realizing a face.
-This is a list of symbols representing face attributes that will be
-ignored by Emacs when realizing a face, and an exact match couldn't be
-found for its preferred font.  For example:
+If non-nil, some font-related face attributes will be matched in a lax
+manner when looking for candidate fonts.
+If the value is t, the default, the search for fonts will not insist
+on exact match for 3 font attributes: weight, width, and slant.
+Instead, it will examine the available fonts with various values of
+these attributes, and select the font that is the closest possible
+match.  (If an exact match is available, it will still be selected,
+as that is the closest match.)  For example, looking for a semi-bold
+font might select a bold or a medium-weight font if no semi-bold font
+matching other attributes can be found.  This is especially important
+when the `default' face specifies unusual values for one or more of
+these 3 attributes, which other installed fonts don't support.
 
-  (:weight :slant :width)
+The value can also be a list of font-related face attribute symbols;
+see `set-face-attribute' for the full list of attributes.  Then the
+corresponding face attributes will be treated as "soft" constraints
+in the manner described above, instead of the default 3 attributes.
 
-tells Emacs to ignore the `:weight', `:slant' and `:width' face
-attributes when searching for a font and an exact match could not be
-found for the font attributes specified in the face being realized.  */);
-  Vfont_fallback_ignored_attributes
-    = list3 (QCwidth, QCslant, QCwidth);
+If the value is nil, candidate fonts might be rejected if the don't
+have exactly the same values of attributes as the face requests.
+
+This variable exists for debugging of the font-selection process,
+and we advise not to change it otherwise.  */);
+  Vface_font_lax_matched_attributes = Qt;
 
 #ifdef HAVE_WINDOW_SYSTEM
   defsubr (&Sbitmap_spec_p);

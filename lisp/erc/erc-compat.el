@@ -1,6 +1,6 @@
 ;;; erc-compat.el --- ERC compatibility code for older Emacsen  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2002-2003, 2005-2022 Free Software Foundation, Inc.
+;; Copyright (C) 2002-2003, 2005-2023 Free Software Foundation, Inc.
 
 ;; Author: Alex Schroeder <alex@gnu.org>
 ;; Maintainer: Amin Bandali <bandali@gnu.org>, F. Jason Park <jp@neverwas.me>
@@ -261,7 +261,7 @@ If START or END is negative, it counts from the end."
             (when-let* ((s (plist-get e :secret))
                         (v (auth-source--obfuscate s)))
               (setf (plist-get e :secret)
-                    (byte-compile (lambda () (auth-source--deobfuscate v)))))
+                    (apply-partially #'auth-source--deobfuscate v)))
             (push e out)))
       rv)))
 
@@ -391,8 +391,11 @@ If START or END is negative, it counts from the end."
 
 (cond ((fboundp 'browse-url-irc)) ; 29
       ((boundp 'browse-url-default-handlers) ; 28
-       (cl-pushnew '("\\`irc6?s?://" . erc-compat--29-browse-url-irc)
-                   browse-url-default-handlers))
+       (add-to-list 'browse-url-default-handlers
+                    '("\\`irc6?s?://" . erc-compat--29-browse-url-irc)
+                    nil (lambda (_ a)
+                          (and (stringp (car-safe a))
+                               (string-match-p (car a) "irc://localhost")))))
       ((boundp 'browse-url-browser-function) ; 27
        (require 'browse-url)
        (let ((existing browse-url-browser-function))

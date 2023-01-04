@@ -1,6 +1,6 @@
 ;;; dockerfile-ts-mode.el --- tree-sitter support for Dockerfiles  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2022 Free Software Foundation, Inc.
+;; Copyright (C) 2022-2023 Free Software Foundation, Inc.
 
 ;; Author     : Randy Taylor <dev@rjt.dev>
 ;; Maintainer : Randy Taylor <dev@rjt.dev>
@@ -33,6 +33,7 @@
 (declare-function treesit-parser-create "treesit.c")
 (declare-function treesit-induce-sparse-tree "treesit.c")
 (declare-function treesit-node-child "treesit.c")
+(declare-function treesit-node-child-by-field-name "treesit.c")
 (declare-function treesit-node-start "treesit.c")
 (declare-function treesit-node-type "treesit.c")
 
@@ -117,8 +118,10 @@ the subtrees."
                            children))
          (name (when ts-node
                  (pcase (treesit-node-type ts-node)
-                   ("from_instruction" (treesit-node-text
-                                        (treesit-node-child ts-node 1) t)))))
+                   ("from_instruction"
+                    (treesit-node-text
+                     (or (treesit-node-child-by-field-name ts-node "as")
+                         (treesit-node-child ts-node 1)) t)))))
          (marker (when ts-node
                    (set-marker (make-marker)
                                (treesit-node-start ts-node)))))
@@ -132,7 +135,7 @@ the subtrees."
 ;;;###autoload
 (add-to-list 'auto-mode-alist
              ;; NOTE: We can't use `rx' here, as it breaks bootstrap.
-             '("\\(?:Dockerfile\\(?:\\..*\\)?\\|\\.[Dd]ockerfile\\)$"
+             '("\\(?:Dockerfile\\(?:\\..*\\)?\\|\\.[Dd]ockerfile\\)\\'"
                . dockerfile-ts-mode))
 
 ;;;###autoload

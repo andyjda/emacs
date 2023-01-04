@@ -1,5 +1,5 @@
 /* Definitions and headers for communication with X protocol.
-   Copyright (C) 1989, 1993-1994, 1998-2022 Free Software Foundation,
+   Copyright (C) 1989, 1993-1994, 1998-2023 Free Software Foundation,
    Inc.
 
 This file is part of GNU Emacs.
@@ -334,6 +334,9 @@ struct x_failable_request
   /* If this is zero, then the request has not yet been made.
      Otherwise, this is the request that ends this sequence.  */
   unsigned long end;
+
+  /* Any selection event serial associated with this error trap.  */
+  unsigned int selection_serial;
 };
 
 #ifdef HAVE_XFIXES
@@ -1287,6 +1290,11 @@ struct x_output
      strictly an optimization to avoid extraneous synchronizing in
      some cases.  */
   int root_x, root_y;
+
+  /* The frame visibility state.  This starts out
+     VisibilityFullyObscured, but is set to something else in
+     handle_one_xevent.  */
+  int visibility_state;
 };
 
 enum
@@ -1404,6 +1412,11 @@ extern void x_mark_frame_dirty (struct frame *f);
 
 /* And its corresponding visual info.  */
 #define FRAME_X_VISUAL_INFO(f) (&FRAME_DISPLAY_INFO (f)->visual_info)
+
+/* Whether or not the frame is visible.  Do not test this alone.
+   Instead, use FRAME_REDISPLAY_P.  */
+#define FRAME_X_VISIBLE(f) (FRAME_X_OUTPUT (f)->visibility_state	\
+			    != VisibilityFullyObscured)
 
 #ifdef HAVE_XRENDER
 #define FRAME_X_PICTURE_FORMAT(f) FRAME_DISPLAY_INFO (f)->pict_format
@@ -1670,7 +1683,8 @@ extern bool x_had_errors_p (Display *);
 extern void x_unwind_errors_to (int);
 extern void x_uncatch_errors (void);
 extern void x_uncatch_errors_after_check (void);
-extern void x_ignore_errors_for_next_request (struct x_display_info *);
+extern void x_ignore_errors_for_next_request (struct x_display_info *,
+					      unsigned int);
 extern void x_stop_ignoring_errors (struct x_display_info *);
 extern void x_clear_errors (Display *);
 extern void x_set_window_size (struct frame *, bool, int, int);
@@ -1830,6 +1844,7 @@ extern void x_handle_selection_notify (const XSelectionEvent *);
 extern void x_handle_selection_event (struct selection_input_event *);
 extern void x_clear_frame_selections (struct frame *);
 extern void x_remove_selection_transfers (struct x_display_info *);
+extern void x_handle_selection_error (unsigned int, XErrorEvent *);
 
 extern Lisp_Object x_atom_to_symbol (struct x_display_info *, Atom);
 extern Atom symbol_to_x_atom (struct x_display_info *, Lisp_Object);
