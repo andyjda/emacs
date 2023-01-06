@@ -54,8 +54,6 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include <math.h>
 
-// for debugging
-#include <stdio.h>
 
 static Lisp_Object id_to_xwidget_map;
 static Lisp_Object internal_xwidget_view_list;
@@ -2266,9 +2264,6 @@ void
 store_xwidget_event_string (struct xwidget *xw, const char *eventname,
                             const char *eventstr)
 {
-  printf("in store_xwidget_event_string");
-  printf("eventname: %s", eventname);
-  printf("eventstr: %s", eventstr);
   struct input_event event;
   Lisp_Object xwl;
   XSETXWIDGET (xwl, xw);
@@ -3106,13 +3101,9 @@ DEFUN ("xwidget-webkit-loading-p",
 {
   struct xwidget *xw;
 
-  printf("\n\nin xwidget_webkit_loading_p");
   CHECK_LIVE_XWIDGET (xwidget);
-  printf("\nchecked LIVE_XWIDGET");
   xw = XXWIDGET (xwidget);
-  printf("\ngot the xwidget");
   CHECK_WEBKIT_WIDGET (xw);
-  printf("\nchecked WEBKIT_WIDGET");
 
   if (nsxwidget_webkit_is_loading (xw))
     return Qt;
@@ -3125,7 +3116,6 @@ DEFUN ("xwidget-webkit-goto-uri",
        doc: /* Make the xwidget webkit instance referenced by XWIDGET browse URI.  */)
   (Lisp_Object xwidget, Lisp_Object uri)
 {
-  printf("\n in xwidget-webkit-goto-uri!!");
   WEBKIT_FN_INIT ();
   CHECK_STRING (uri);
   uri = ENCODE_FILE (uri);
@@ -3135,9 +3125,6 @@ DEFUN ("xwidget-webkit-goto-uri",
 #elif defined NS_IMPL_COCOA
   nsxwidget_webkit_goto_uri (xw, SSDATA (uri));
 #endif
-//  printf("\nwhat happens if i try to call xwidget-webkit-estimated-load-progress from here?");
-//  double value = xwidget_webkit_estimated_load_progress(xw);
-//  printf("\ngot value: %f", value);
   return Qnil;
 }
 
