@@ -3912,27 +3912,23 @@ This will stop any data transfer that may still be in progress inside
 XWIDGET as part of loading a page.  */)
   (Lisp_Object xwidget)
 {
-  #ifdef USE_GTK
   struct xwidget *xw;
+#ifdef USE_GTK
   WebKitWebView *webview;
-  printf("\n\nin xwidget_webkit_stop-loading");
+#endif
 
   CHECK_LIVE_XWIDGET (xwidget);
-  printf("\nchecked LIVE_XWIDGET");
   xw = XXWIDGET (xwidget);
-  printf("\ngot the xw");
   CHECK_WEBKIT_WIDGET (xw);
-  printf("\nchecked webkit widget");
 
   block_input ();
-  printf("\nblocked the input");
+#ifdef USE_GTK
   webview = WEBKIT_WEB_VIEW (xw->widget_osr);
-  printf("\ngot the webview");
   webkit_web_view_stop_loading (webview);
-  printf("\nstopped loading");
+#elif defined NS_IMPL_COCOA
+  nsxwidget_webkit_stop_loading (xw);
+#endif
   unblock_input ();
-  printf("\nunblocked input");
-  #endif
 
   return Qnil;
 }
