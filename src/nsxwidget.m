@@ -59,9 +59,6 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 
 - (void)dealloc
 {
-  // [WKWebViewConfiguration release];
-  // [WKUserContentController release];
-  // [NSMutableDictionary release];
   [super dealloc];
 }
 
@@ -99,7 +96,6 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
         @" AppleWebKit/603.3.8 (KHTML, like Gecko)"
         @" Version/11.0.1 Safari/603.3.8";
       [scriptor addScriptMessageHandler:self name:@"keyDown"];
-      // TODO: maybe try an autorelease here?
       WKUserScript *userScript = [[[WKUserScript alloc]
                                     initWithSource:xwScript
                                      injectionTime:
@@ -131,7 +127,6 @@ didReceiveServerRedirectForProvisionalNavigation:(WKNavigation *)navigation
     store_xwidget_event_string (self.xw, "load-changed", "load-redirected");
 }
 
-// TODO: test this out
 // Start loading WKWebView
 - (void)webView:(WKWebView *)webView didCommitNavigation:(WKNavigation *)navigation
 {
@@ -385,13 +380,6 @@ nsxwidget_webkit_estimated_load_progress(struct xwidget *xw)
   return xwWebView.estimatedProgress;
 }
 
-bool
-nsxwidget_webkit_is_loading(struct xwidget *xw)
-{
-  XwWebView *xwWebView = (XwWebView *) xw->xwWidget;
-  return xwWebView.isLoading;
-}
-
 void
 nsxwidget_webkit_stop_loading (struct xwidget *xw)
 {
@@ -512,7 +500,7 @@ nsxwidget_init(struct xwidget *xw)
                                    autorelease]
                          xwidget:xw];
   xw->xwWindow = [[XwWindow alloc]
-                   initWithFrame:rect]; // TODO should there be autoreleases for these inits?
+                   initWithFrame:rect];
   [xw->xwWindow addSubview:xw->xwWidget];
   xw->xv = NULL; /* for 1 to 1 relationship of webkit2.  */
   unblock_input ();
@@ -527,9 +515,7 @@ nsxwidget_kill (struct xwidget *xw)
         ((XwWebView *) xw->xwWidget).configuration.userContentController;
       [scriptor removeAllUserScripts];
       [scriptor removeScriptMessageHandlerForName:@"keyDown"];
-       // the autorelease is actually taking care of these releases,
-      // and this release is no longer necessary
-      // [scriptor release];
+
       if (xw->xv)
         xw->xv->model = Qnil; /* Make sure related view stale.  */
 
@@ -538,15 +524,9 @@ nsxwidget_kill (struct xwidget *xw)
          TODO: improve this */
       nsxwidget_webkit_goto_uri (xw, "about:blank");
 
-      // not sure if this part needed is needed or if it actually
-      // causes a seg fault.
-      // looks like we're better off without it: no seg fault
-      // [((XwWebView *) xw->xwWidget).configuration release];
-
-      // TODO: remove this if you're going to do an autorelease for this
       [((XwWebView *) xw->xwWidget).urlScriptBlocked release];
       [xw->xwWidget removeFromSuperviewWithoutNeedingDisplay];
-      // TODO: try autorelease for these instead?
+
       [xw->xwWidget release];
       [xw->xwWindow removeFromSuperviewWithoutNeedingDisplay];
       [xw->xwWindow release];

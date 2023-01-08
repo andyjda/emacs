@@ -3094,22 +3094,6 @@ is to completely loading its page.  */)
   return make_float (value);
 }
 
-DEFUN ("xwidget-webkit-loading-p",
-       Fxwidget_webkit_loading_p, Sxwidget_webkit_loading_p,
-       1, 1, 0, doc: /* Return whether the xwidget is currently loading a web page.  */)
-  (Lisp_Object xwidget)
-{
-  struct xwidget *xw;
-
-  CHECK_LIVE_XWIDGET (xwidget);
-  xw = XXWIDGET (xwidget);
-  CHECK_WEBKIT_WIDGET (xw);
-
-  if (nsxwidget_webkit_is_loading (xw))
-    return Qt;
-  return Qnil;
-}
-
 DEFUN ("xwidget-webkit-goto-uri",
        Fxwidget_webkit_goto_uri, Sxwidget_webkit_goto_uri,
        2, 2, 0,
@@ -3968,7 +3952,6 @@ syms_of_xwidget (void)
 #endif
 
   defsubr (&Sxwidget_webkit_estimated_load_progress);
-  defsubr (&Sxwidget_webkit_loading_p);
   defsubr (&Skill_xwidget);
 
   DEFSYM (QCxwidget, ":xwidget");
