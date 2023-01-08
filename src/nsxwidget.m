@@ -375,7 +375,6 @@ nsxwidget_webkit_goto_history (struct xwidget *xw, int rel_pos)
 double
 nsxwidget_webkit_estimated_load_progress(struct xwidget *xw)
 {
-  bool loading_p = nsxwidget_webkit_is_loading(xw);
   XwWebView *xwWebView = (XwWebView *) xw->xwWidget;
   return xwWebView.estimatedProgress;
 }
