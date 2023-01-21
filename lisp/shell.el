@@ -1786,7 +1786,7 @@ to make `shell-highlight-undef-mode' redo its setup."
 (defun sticky-shell-current-line-trimmed ()
   "Return the current line and remove trailing whitespace."
   (let ((prompt (or (thing-at-point 'line) "")))
-    (string-trim-right prompt "[ \t\n\r]+"))) ; remove the newline ending char
+    (string-trim-right prompt "[ \t\n\r]+"))) ; remove whitespace at the end of the line
 
 (defun shell-previous-prompt (n)
   "Move to end of Nth previous prompt in the buffer.
