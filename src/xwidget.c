@@ -54,7 +54,6 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include <math.h>
 
-
 static Lisp_Object id_to_xwidget_map;
 static Lisp_Object internal_xwidget_view_list;
 static Lisp_Object internal_xwidget_list;

@@ -57,12 +57,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 @end
 @implementation XwWebView : WKWebView
 
-- (void)dealloc
-{
-  [super dealloc];
-}
-
-- (id)initWithFrame:(CGRect)frame
+- (id) initWithFrame:(CGRect)frame
       configuration:(WKWebViewConfiguration *)configuration
             xwidget:(struct xwidget *)xw
 {
@@ -100,41 +95,41 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
                                     initWithSource:xwScript
                                      injectionTime:
                                       WKUserScriptInjectionTimeAtDocumentStart
-                                    forMainFrameOnly:NO]
-                                   autorelease];
+                                    forMainFrameOnly:NO] autorelease];
       [scriptor addUserScript:userScript];
     }
   return self;
 }
 
-- (void)webView:(WKWebView *)webView
+- (void) webView:(WKWebView *)webView
 didFinishNavigation:(WKNavigation *)navigation
 {
   if (EQ (Fbuffer_live_p (self.xw->buffer), Qt))
     store_xwidget_event_string (self.xw, "load-changed", "load-finished");
 }
 
-- (void)webView:(WKWebView *)webView didStartProvisionalNavigation:(WKNavigation *)navigation
+- (void) webView:(WKWebView *)webView didStartProvisionalNavigation:(WKNavigation *)navigation
 {
   if (EQ (Fbuffer_live_p (self.xw->buffer), Qt))
     store_xwidget_event_string (self.xw, "load-changed", "load-started");
 }
 
-- (void)webView:(WKWebView *)webView
+- (void) webView:(WKWebView *)webView
 didReceiveServerRedirectForProvisionalNavigation:(WKNavigation *)navigation
 {
   if (EQ (Fbuffer_live_p (self.xw->buffer), Qt))
     store_xwidget_event_string (self.xw, "load-changed", "load-redirected");
 }
 
-// Start loading WKWebView
-- (void)webView:(WKWebView *)webView didCommitNavigation:(WKNavigation *)navigation
+/* Start loading WKWebView */
+- (void) webView:(WKWebView *)webView
+didCommitNavigation:(WKNavigation *)navigation
 {
-  if (EQ (Fbuffer_live_p (self.xw->buffer), Qt)) // what exactly is this test for
+  if (EQ (Fbuffer_live_p (self.xw->buffer), Qt))
     store_xwidget_event_string (self.xw, "load-changed", "load-committed");
 }
 
-- (void)webView:(WKWebView *)webView
+- (void) webView:(WKWebView *)webView
 decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction
 decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
 {
@@ -143,13 +138,13 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
     decisionHandler (WKNavigationActionPolicyAllow);
     break;
   default:
-    // decisionHandler (WKNavigationActionPolicyCancel);
+    /* decisionHandler (WKNavigationActionPolicyCancel); */
     decisionHandler (WKNavigationActionPolicyAllow);
     break;
   }
 }
 
-- (void)webView:(WKWebView *)webView
+- (void) webView:(WKWebView *)webView
 decidePolicyForNavigationResponse:(WKNavigationResponse *)navigationResponse
 decisionHandler:(void (^)(WKNavigationResponsePolicy))decisionHandler
 {
@@ -195,7 +190,7 @@ decisionHandler:(void (^)(WKNavigationResponsePolicy))decisionHandler
 
 /* No additional new webview or emacs window will be created
    for <a ... target="_blank">.  */
-- (WKWebView *)webView:(WKWebView *)webView
+- (WKWebView *) webView:(WKWebView *)webView
 createWebViewWithConfiguration:(WKWebViewConfiguration *)configuration
    forNavigationAction:(WKNavigationAction *)navigationAction
         windowFeatures:(WKWindowFeatures *)windowFeatures
@@ -206,7 +201,7 @@ createWebViewWithConfiguration:(WKWebViewConfiguration *)configuration
 }
 
 /* Open panel for file upload.  */
-- (void)webView:(WKWebView *)webView
+- (void) webView:(WKWebView *)webView
 runOpenPanelWithParameters:(WKOpenPanelParameters *)parameters
 initiatedByFrame:(WKFrameInfo *)frame
 completionHandler:(void (^)(NSArray<NSURL *> *URLs))completionHandler
@@ -226,13 +221,13 @@ completionHandler:(void (^)(NSArray<NSURL *> *URLs))completionHandler
    - Correct mouse hand/arrow/I-beam is displayed (TODO: not perfect yet).
 */
 
-- (void)mouseDown:(NSEvent *)event
+- (void) mouseDown:(NSEvent *)event
 {
   [self.xw->xv->emacswindow mouseDown:event];
   [super mouseDown:event];
 }
 
-- (void)mouseUp:(NSEvent *)event
+- (void) mouseUp:(NSEvent *)event
 {
   [self.xw->xv->emacswindow mouseUp:event];
   [super mouseUp:event];
@@ -243,7 +238,7 @@ completionHandler:(void (^)(NSArray<NSURL *> *URLs))completionHandler
    emacs as first responder to avoid focus held in an input element
    with matching text.  */
 
-- (void)keyDown:(NSEvent *)event
+- (void) keyDown:(NSEvent *)event
 {
   Lisp_Object var = Fintern (build_string ("isearch-mode"), Qnil);
   Lisp_Object val = buffer_local_value (var, Fcurrent_buffer ());
@@ -279,7 +274,7 @@ completionHandler:(void (^)(NSArray<NSURL *> *URLs))completionHandler
     }];
 }
 
-- (void)interpretKeyEvents:(NSArray<NSEvent *> *)eventArray
+- (void) interpretKeyEvents:(NSArray<NSEvent *> *)eventArray
 {
   /* We should do nothing and do not forward (default implementation
      if we not override here) to let emacs collect key events and ask
@@ -287,7 +282,7 @@ completionHandler:(void (^)(NSArray<NSURL *> *URLs))completionHandler
 }
 
 static NSString *xwScript;
-+ (void)initialize
++ (void) initialize
 {
   /* Find out if an input element has focus.
      Message to script message handler when 'C-g' key down.  */
@@ -313,7 +308,7 @@ static NSString *xwScript;
 
 /* Confirming to WKScriptMessageHandler, listens concerning keyDown in
    webkit. Currently 'C-g'.  */
-- (void)userContentController:(WKUserContentController *)userContentController
+- (void) userContentController:(WKUserContentController *)userContentController
       didReceiveScriptMessage:(WKScriptMessage *)message
 {
   if ([message.body isEqualToString:@"C-g"])
@@ -373,7 +368,7 @@ nsxwidget_webkit_goto_history (struct xwidget *xw, int rel_pos)
 }
 
 double
-nsxwidget_webkit_estimated_load_progress(struct xwidget *xw)
+nsxwidget_webkit_estimated_load_progress (struct xwidget *xw)
 {
   XwWebView *xwWebView = (XwWebView *) xw->xwWidget;
   return xwWebView.estimatedProgress;
@@ -473,7 +468,7 @@ nsxwidget_webkit_execute_script (struct xwidget *xw, const char *script,
         }
       else if (result && FUNCTIONP (fun))
         {
-          // NSLog (@"result=%@, type=%@", result, [result class]);
+          /* NSLog (@"result=%@, type=%@", result, [result class]); */
           Lisp_Object lisp_value = js_to_lisp (result);
           store_xwidget_js_callback_event (xw, fun, lisp_value);
         }
@@ -483,13 +478,13 @@ nsxwidget_webkit_execute_script (struct xwidget *xw, const char *script,
 /* Window containing an xwidget.  */
 
 @implementation XwWindow
-- (BOOL)isFlipped { return YES; }
+- (BOOL) isFlipped { return YES; }
 @end
 
 /* Xwidget model, macOS Cocoa part.  */
 
 void
-nsxwidget_init(struct xwidget *xw)
+nsxwidget_init (struct xwidget *xw)
 {
   block_input ();
   NSRect rect = NSMakeRect (0, 0, xw->width, xw->height);
@@ -553,7 +548,7 @@ nsxwidget_get_size (struct xwidget *xw)
 /* Xwidget view, macOS Cocoa part.  */
 
 @implementation XvWindow : NSView
-- (BOOL)isFlipped { return YES; }
+- (BOOL) isFlipped { return YES; }
 @end
 
 void
