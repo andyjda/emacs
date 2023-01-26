@@ -490,10 +490,10 @@ selected frame is not an X-Windows frame.  */)
 {
   struct xwidget *xw;
   struct frame *f = NULL;
-
-#ifdef USE_GTK
   int character = -1, keycode = -1;
   int modifiers = 0;
+
+#ifdef USE_GTK
   GdkEvent *xg_event;
   GtkContainerClass *klass;
   GtkWidget *widget;
