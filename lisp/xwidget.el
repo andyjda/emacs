@@ -924,8 +924,8 @@ Return the buffer."
 (defun xwidget-webkit-current-url ()
   "Display the current xwidget webkit URL and place it on the `kill-ring'."
   (interactive nil xwidget-webkit-mode)
-  (let ((url (or (xwidget-webkit-uri (xwidget-webkit-current-session)) "")))
-    (kill-new url)
+  (let ((url (xwidget-webkit-uri (xwidget-webkit-current-session))))
+    (when url (kill-new url))
     (message "URL: %s" url)))
 
 (defun xwidget-webkit-browse-history ()
