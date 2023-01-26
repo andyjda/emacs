@@ -108,7 +108,8 @@ didFinishNavigation:(WKNavigation *)navigation
     store_xwidget_event_string (self.xw, "load-changed", "load-finished");
 }
 
-- (void) webView:(WKWebView *)webView didStartProvisionalNavigation:(WKNavigation *)navigation
+- (void) webView:(WKWebView *)webView
+didStartProvisionalNavigation:(WKNavigation *)navigation
 {
   if (EQ (Fbuffer_live_p (self.xw->buffer), Qt))
     store_xwidget_event_string (self.xw, "load-changed", "load-started");
