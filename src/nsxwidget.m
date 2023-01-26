@@ -101,6 +101,8 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
   return self;
 }
 
+/* These 4 functions emulate the behavior of webkit_view_load_changed_cb
+   in the GTK implementation*/
 - (void) webView:(WKWebView *)webView
 didFinishNavigation:(WKNavigation *)navigation
 {
